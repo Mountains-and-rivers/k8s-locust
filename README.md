@@ -443,11 +443,11 @@ docker build -t centos_base:v1 .
 修改连接参数：
 
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/4.png)
-![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/6.png)
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/5.png)
 
 maven打包
 
-图片
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/6.png)
 
 制作镜像：
 
@@ -463,7 +463,7 @@ ENTRYPOINT ["java","-jar","/usr/local/test/app.jar"]
 
 刷sql脚本：
 
-图片
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/7.png)
 
 打包上传到docker hub
 
@@ -552,7 +552,9 @@ kubectl apply -f eladmin-deployment.yaml
 
 修改配置
 
-图片
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/8.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/9.png)
 
 执行打包命令:
 
@@ -686,7 +688,9 @@ http {
 
 3, 验证
 
-图片
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/10.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/11.png)
 
 
 
