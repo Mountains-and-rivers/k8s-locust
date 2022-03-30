@@ -1,0 +1,208 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-local
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage
+  local:
+    path: /var/lib/mysql  # worker01节点上的目录
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - worker01
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: mysql-sre
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: local-storage
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config-sre
+data:
+  mysqld.cnf: |
+        [mysqld]
+        pid-file        = /var/run/mysqld/mysqld.pid
+        socket          = /var/run/mysqld/mysqld.sock
+        datadir         = /var/lib/mysql
+        log-error      = /var/log/mysql/error.log
+        bind-address   = 0.0.0.0
+        # Disabling symbolic-links is recommended to prevent assorted security risks
+        symbolic-links=0
+        max_connections=1000
+        default_storage_engine=innodb
+        skip_external_locking
+        lower_case_table_names=1
+        skip_host_cache
+        skip_name_resolve
+        character_set_server=utf8
+        sql_mode='STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-sre-database
+  labels:
+    app: mysql-sre
+spec:
+  selector:
+    matchLabels:
+      app: mysql-sre
+  template:
+    metadata:
+      labels:
+        app: mysql-sre
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:5.7
+        imagePullPolicy: IfNotPresent
+        args:
+        - --default_authentication_plugin=mysql_native_password
+        - --character-set-server=utf8mb4
+        - --collation-server=utf8mb4_unicode_ci
+        ports:
+        - containerPort: 3306
+          name: dbport
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          value: MyNewPass4!
+        - name: MYSQL_DATABASE
+          value: eladmin
+        - name: MYSQL_USER
+          value: authbase
+        - name: MYSQL_PASSWORD
+          value: MyNewPass4!
+        volumeMounts:
+        - name: db-data
+          mountPath: /var/lib/mysql
+        - name: mysql-config
+          mountPath: /etc/mysql/conf.d/  
+      volumes:
+      - name: db-data
+        persistentVolumeClaim:
+          claimName: mysql-sre
+      - name: mysql-config
+        configMap:
+          name: mysql-config-sre
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-sre
+spec:
+  type: NodePort
+  ports:
+  - name: mysqlport
+    protocol: TCP
+    port: 3306
+    targetPort: dbport
+    nodePort: 30106
+  selector:
+    app: mysql-sre
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-local-backup
+spec:
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage-backup
+  local:
+    path: /mysql-backup  # worker01节点上的目录
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - worker01
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: mysql-sre-backup
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: local-storage-backup
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage-backup
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: mysql-sre-backup
+spec:
+  schedule: "0 2 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: mysql-backup
+            imagePullPolicy: IfNotPresent
+            image: mysql:5.7
+            env:
+            - name: MYSQL_BACKUP_USER
+              value: root
+            - name: MYSQL_BACKUP_USER_PASSWORD
+              value: MyNewPass4!
+            - name: MYSQL_HOST
+              value: mysql-sre
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -ex
+              mysqldump --host=MYSQL_HOST --user=MYSQL_BACKUP_USER \
+                        --password=$MYSQL_BACKUP_USER_PASSWORD \
+                        --routines --databases appdb --single-transaction \
+                        > /mysql-backup/mysql-`date +"%Y%m%d"`.sql
+            volumeMounts:
+            - name: mysql-backup
+              mountPath: /mysql-backup
+          restartPolicy: OnFailure
+          volumes:
+          - name: mysql-backup
+            persistentVolumeClaim:
+              claimName: mysql-sre-backup
