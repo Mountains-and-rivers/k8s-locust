@@ -1,12 +1,13 @@
 # 基于k8s+locust+boomer的分布式压力测试方案落地
 ## 一，环境信息
 
-| 节点     | IP             | 服务         | 版本          |
-| -------- | -------------- | ------------ | ------------- |
-| master   | 192.168.31.243 |              |               |
-| worker01 | 192.168.31.230 | mysql，redis | 5.7.35，3.0.7 |
-| worker02 | 192.168.31.28  |              |               |
-| worker03 | 192.168.31.132 | eladmin      |               |
+| 节点     | k8s节点 | os         | IP             | 服务                      | SDK                              |
+| -------- | ------- | ---------- | -------------- | ------------------------- | -------------------------------- |
+| master   | 1       | centos8.3  | 192.168.31.243 |                           |                                  |
+| worker01 | 1       | centos8.3  | 192.168.31.230 | mysql-5.7.35，redis-3.0.7 |                                  |
+| worker02 | 1       | centos8.3  | 192.168.31.28  |                           |                                  |
+| worker03 | 1       | centos8.3  | 192.168.31.132 | eladmin                   |                                  |
+| win11-pc | 0       | windows 11 | 192.168.31.217 | nginx/eladmin-web         | node/v16.14.0  jdk/1.8.0_321-b07 |
 
 ## 二，搭建集群
 
@@ -452,6 +453,10 @@ COPY eladmin-system-2.6.jar  /usr/local/test/app.jar
 
 ENTRYPOINT ["java","-jar","/usr/local/test/app.jar"]
 ```
+
+刷sql脚本：
+
+图片
 
 打包上传到docker hub
 
