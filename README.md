@@ -13,7 +13,7 @@ eladmin部署参考：https://github.com/elunez/eladmin
 | worker03 | true    | centos8.3  | 192.168.31.132 | eladmin                   |                                  |
 | win11-pc | false   | windows 11 | 192.168.31.217 | nginx/eladmin-web         | node/v16.14.0  jdk/1.8.0_321-b07 |
 
-图片
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/1.png)
 
 ## 二，搭建集群
 
@@ -298,7 +298,7 @@ kubectl apply -f mysql.yaml
 
 连接测试：
 
-图片
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/2.png)
 
 ### 2，单机部署redis
 
@@ -401,7 +401,7 @@ kubectl apply -f redis.yaml
 
 连接测试：
 
-图片
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/3.png)
 
 ## 四，制作基础镜像
 
@@ -442,7 +442,8 @@ docker build -t centos_base:v1 .
 
 修改连接参数：
 
-图片
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/4.png)
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/6.png)
 
 maven打包
 
