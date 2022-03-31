@@ -1470,6 +1470,12 @@ spec:
     path: /export/prometheus
 ```
 
+操作
+
+```
+kubectl apply -f prometheus_exporter.yaml
+```
+
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/23.png)
 
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/24.png)
