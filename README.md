@@ -1,4 +1,4 @@
-# 基于k8s+locust+boomer的分布式压力测试方案落地
+# 基于k8s+locust+boomer的分布式压力测试方案
 eladmin部署参考：https://github.com/elunez/eladmin
 
 修改后的代码打包至release中
@@ -916,7 +916,7 @@ kubectl apply -f setup/
 
 ## 八，编写locust脚本
 
-locustflask.py
+locustflask.py master节点
 
 ```
 from locust import HttpUser, task, constant,SequentialTaskSet,TaskSet,events
@@ -1109,9 +1109,13 @@ class FlaskUser(HttpUser):
     tasks = [FlaskTask] # 指定测试任务
 ```
 
-prometheus_exporter.py
+locustflask.py worker 节点
 
 ```
+from locust import HttpUser, task, constant,SequentialTaskSet,TaskSet,events
+import logging as log
+import json
+
 import six
 from itertools import chain
 
@@ -1223,6 +1227,79 @@ def locust_init(environment, runner, **kwargs):
             return Response(body, content_type=content_type)
 
         REGISTRY.register(LocustCollector(environment, runner))
+
+@events.test_start.add_listener
+def on_start(**kwargs):
+    log.info("A test will start...")
+
+@events.test_stop.add_listener
+def on_stop(**kwargs):
+    log.info("A test is ending...")
+
+# 该类中的任务执行顺序是 index ---> login  Task 可以加到类上
+WEB_HEADER = None
+
+# 无序并发任务
+class SetTask(TaskSet):
+    @task(1)
+    def getLogDetail(self):
+        deatil_url = "/auth/online?page=0&size=10&sort=id%2Cdesc"
+        with self.client.request(method='GET',
+                                 url=deatil_url,
+                                 headers=WEB_HEADER,
+                                 name='获取日志详情') as response:
+            log.info("11111111111111111111111111111111111")
+            #log.info(response.text)
+    @task
+    def stop(self):
+        log.info("33333333333333333333333333333333")
+        self.interrupt()
+# 有序并发任务
+class FlaskTask(SequentialTaskSet): #该类下没有智能提示
+    # 登录获取 token，拼接后续请求头
+    def on_start(self):
+        res = self.client.request(method='GET', url="/auth/code",name="获取验证码")
+        uuid = res.json()['uuid']
+        headers = {
+            "content-type": "application/json;charset=UTF-8",
+        }
+        datda_info = {
+            "code": "15",
+            "password": "B0GdcVWB+XtTwsyBjzoRkn8VnSgtPVKpl8mp7AuQ+BTeU030grUkRwmOHXFCjEhKXB7yezBS7dFEJ63ykR2piQ==",
+            "username": "admin",
+            "uuid": uuid
+        }
+        with self.client.request(method='POST',url="/auth/login", headers=headers, catch_response=True,data=json.dumps(datda_info),name="获取token") as response:
+            self.token = response.json()['token']
+            if response.status_code == 200:
+                self.token = response.json()['token']
+                response.success()
+            else:
+                response.failure("获取token失败")
+            global WEB_HEADER
+            WEB_HEADER = {
+                "Authorization": self.token
+            }
+    #嵌套无序并发任务
+    tasks = [SetTask]
+    @task #关联登录成功后的token，也即 前一个业务返回的业务需要传递给后续的请求
+    def getUserDetail(self):
+        deatil_url = "/api/dictDetail?dictName=user_status&page=0&size=9999"
+        with self.client.request(method='GET',
+                                 url=deatil_url,
+                                 headers=WEB_HEADER,
+                                 name='获取用户详情') as response:
+            log.info("22222222222222222222222222222222222222")
+            log.info(response.text)
+
+def function_task():
+    log.info("This is the function task")
+
+class FlaskUser(HttpUser):
+    host = 'http://192.168.31.243:30080'  # 设置根地址
+    wait_time = constant(1)  # 每次请求的延时时间
+    #wait_time = between(1,3)  # 等待时间1~3s
+    tasks = [FlaskTask] # 指定测试任务
 ```
 
 在worker节点启动master 和 woker
