@@ -1055,13 +1055,11 @@ class SetTask(TaskSet):
                                  url=deatil_url,
                                  headers=WEB_HEADER,
                                  name='获取日志详情') as response:
-            log.info("11111111111111111111111111111111111")
-            #log.info(response.text)
+            log.info(response.text)
     @task
     def stop(self):
-        log.info("33333333333333333333333333333333")
         self.interrupt()
-# 有序序并发任务
+# 有序并发任务
 class FlaskTask(SequentialTaskSet): #该类下没有智能提示
     # 登录获取 token，拼接后续请求头
     def on_start(self):
@@ -1096,7 +1094,6 @@ class FlaskTask(SequentialTaskSet): #该类下没有智能提示
                                  url=deatil_url,
                                  headers=WEB_HEADER,
                                  name='获取用户详情') as response:
-            log.info("22222222222222222222222222222222222222")
             log.info(response.text)
 
 def function_task():
@@ -1248,11 +1245,9 @@ class SetTask(TaskSet):
                                  url=deatil_url,
                                  headers=WEB_HEADER,
                                  name='获取日志详情') as response:
-            log.info("11111111111111111111111111111111111")
-            #log.info(response.text)
+            log.info(response.text)
     @task
     def stop(self):
-        log.info("33333333333333333333333333333333")
         self.interrupt()
 # 有序并发任务
 class FlaskTask(SequentialTaskSet): #该类下没有智能提示
@@ -1289,7 +1284,6 @@ class FlaskTask(SequentialTaskSet): #该类下没有智能提示
                                  url=deatil_url,
                                  headers=WEB_HEADER,
                                  name='获取用户详情') as response:
-            log.info("22222222222222222222222222222222222222")
             log.info(response.text)
 
 def function_task():
