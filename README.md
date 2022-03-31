@@ -693,7 +693,7 @@ http {
 
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/11.png)
 
-## 六，部署dashbroad
+## 六，部署dashboard 
 
 当前部署dashboard版本:v2.2.0,注意检查dashboard版本与kubernetes版本兼容性
 
@@ -793,7 +793,7 @@ dashboard支持暗黑模式，可以在settings中设置
 -----------------------------------
 Kube-promethues 版本： 0.7.0
 
-Kubernetes 版本： 1.21
+Kubernetes 版本： 1.20
 
 由于它的文件都存放在项目源码的 manifests 文件夹下，所以需要进入其中进行启动这些 kubernetes 应用 yaml 文件。又由于这些文件堆放在一起，不利于分类启动，所以这里将它们分类。
 
@@ -1296,7 +1296,7 @@ class FlaskUser(HttpUser):
     tasks = [FlaskTask] # 指定测试任务
 ```
 
-在worker节点启动master 和 woker
+在worker节点启动master 和 worker
 
 终端1
 
