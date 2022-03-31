@@ -1479,3 +1479,35 @@ kubectl apply -f prometheus_exporter.yaml
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/23.png)
 
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/24.png)
+
+
+
+# 参考
+
+https://blog.csdn.net/tfs411082561/article/details/78416569
+
+https://el-admin.vip/pages/010101/
+
+https://blog.51cto.com/forever8/2787167
+
+https://blog.csdn.net/qq_41522024/article/details/123780040
+
+https://www.coder4.com/archives/7491
+
+https://www.programminghunter.com/article/88221818180/
+
+https://testerhome.com/topics/24828
+
+https://cloud.tencent.com/developer/article/1813370
+
+https://www.cnblogs.com/51kata/p/5262301.html
+
+https://www.qikqiak.com/k8strain2/monitor/operator/custom/
+
+https://www.qikqiak.com/k8s-book/docs/59.%E8%87%AA%E5%AE%9A%E4%B9%89Prometheus%20Operator%20%E7%9B%91%E6%8E%A7%E9%A1%B9.html
+
+https://cloud.tencent.com/document/product/1416/55995
+
+https://github.com/myzhan/boomer/blob/master/prometheus_exporter.py
+
+https://www.jianshu.com/p/4340d8e80fdc
