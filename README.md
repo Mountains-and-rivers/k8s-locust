@@ -1448,8 +1448,6 @@ kubectl apply -f worker-deployment.yaml
 
 访问 http://192.168.31.243:32109/ 启动测试
 
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/22.png)
+
 对接grafana
-
-
-
-TODO 。。。。 快神经了
