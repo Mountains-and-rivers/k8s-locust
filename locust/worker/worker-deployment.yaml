@@ -1,0 +1,22 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: locust-slave-controller
+  labels:
+    k8s-app: locust-slave
+spec:
+  selector:
+    matchLabels:
+      k8s-app: locust-slave
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: locust-slave
+        name: locust-slave
+    spec:
+      containers:
+        - name: locust-slave
+          image: mangseng/locust:worker
+          command: ["locust", "-f", "locustflask.py", "--worker","--master-host=locust-master"]

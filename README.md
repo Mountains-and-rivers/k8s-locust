@@ -409,7 +409,6 @@ kubectl apply -f redis.yaml
 
 ```
 FROM centos:8
-
 RUN curl -o Python-3.7.3.tgz https://www.python.org/ftp/python/3.7.3/Python-3.7.3.tgz && \
     tar -xzvf Python-3.7.3.tgz && \
     curl -o /etc/yum.repos.d/CentOS-Base.repo http://mirrors.aliyun.com/repo/Centos-8.repo  && \
@@ -419,13 +418,13 @@ RUN curl -o Python-3.7.3.tgz https://www.python.org/ftp/python/3.7.3/Python-3.7.
     yum install -y libffi-devel zlib-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel zlib zlib-devel gcc make && \
     mkdir -p /usr/local/python3 && \
     cd Python-3.7.3 && \
-    ./configure --prefix=/usr/local/bin/python3 && \
+    ./configure --prefix=/usr/local/python3 && \
     make && \
     make install && \
-    rm -rf /usr/bin/python3 && \
-    ln -s /usr/local/bin/python3/bin/python3 /usr/bin/python3 && \
-    rm -rf  Python-3.7.3.tgz && \
-    rm -rf  Python-3.7.3
+    ln -s /usr/local/python3/bin/python3 /usr/bin/python3 && \
+    ln -s /usr/local/python3/bin/pip3 /usr/bin/pip3 && \
+    rm -rf  /Python-3.7.3.tgz && \
+    rm -rf  /Python-3.7.3
 ADD jdk-8u202-linux-x64.tar.gz /usr/local
 ENV JAVA_HOME /usr/local/jdk1.8.0_202
 ENV PATH $PATH:$JAVA_HOME/bin
@@ -1316,3 +1315,141 @@ kubectl apply -f prometheus_exporter.yaml
 
 至此，locust测试的数据就可以用grafana展示了
 
+## 十一，k8s部署locust master worker
+
+master 镜像制作
+
+````
+FROM centos_base:v1
+
+RUN mkdir -p /usr/local/locust
+
+WORKDIR /usr/local/locust
+
+COPY locustflask.py  /usr/local/locust/locustflask.py
+
+RUN cd /usr/local/locust && \
+    pip3 install locust -i http://pypi.douban.com/simple --trusted-host pypi.douban.com && \
+    pip3 install prometheus_client -i http://pypi.douban.com/simple --trusted-host pypi.douban.com && \
+    ln -s /usr/local/python3/bin/locust /usr/bin/locust
+
+ENTRYPOINT ["locust","-f","/usr/local/locust/locustflask.py","--master"]
+````
+
+worker 镜像制作
+
+```
+
+FROM centos_base:v1
+
+RUN mkdir -p /usr/local/locust
+
+WORKDIR /usr/local/locust
+
+COPY locustflask.py  /usr/local/locust/locustflask.py
+
+RUN cd /usr/local/locust && \
+    pip3 install locust -i http://pypi.douban.com/simple --trusted-host pypi.douban.com && \
+    pip3 install prometheus_client -i http://pypi.douban.com/simple --trusted-host pypi.douban.com && \
+    ln -s /usr/local/python3/bin/locust /usr/bin/locust
+```
+
+部署master
+
+```
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: locust-master-controller
+  labels:
+    k8s-app: locust-master
+spec:
+  selector:
+    matchLabels:
+      k8s-app: locust-master
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: locust-master
+        name: locust-master
+    spec:
+      containers:
+        - name: locust-master
+          image: mangseng/locust:master
+          ports:
+            - name: loc-master-web
+              containerPort: 8089
+              protocol: TCP
+            - name: loc-master-p1
+              containerPort: 5557
+              protocol: TCP
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: locust-master
+spec:
+  type: NodePort
+  selector:
+    k8s-app: locust-master
+  ports:
+    - port: 8089
+      targetPort: loc-master-web
+      nodePort: 32109
+      protocol: TCP
+      name: loc-master-web
+    - port: 5557
+      targetPort: loc-master-p1
+      protocol: TCP
+      name: loc-master-p1
+
+```
+
+操作
+
+```
+kubectl apply -f master-deployment.yaml
+```
+
+部署worker
+
+```
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: locust-slave-controller
+  labels:
+    k8s-app: locust-slave
+spec:
+  selector:
+    matchLabels:
+      k8s-app: locust-slave
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: locust-slave
+        name: locust-slave
+    spec:
+      containers:
+        - name: locust-slave
+          image: mangseng/locust:worker
+          command: ["locust", "-f", "locustflask.py", "--worker","--master-host=locust-master"]
+```
+
+操作
+
+```
+kubectl apply -f worker-deployment.yaml
+```
+
+访问 http://192.168.31.243:32109/ 启动测试
+
+对接grafana
+
+
+
+TODO 。。。。 快神经了

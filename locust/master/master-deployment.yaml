@@ -1,0 +1,47 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: locust-master-controller
+  labels:
+    k8s-app: locust-master
+spec:
+  selector:
+    matchLabels:
+      k8s-app: locust-master
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: locust-master
+        name: locust-master
+    spec:
+      containers:
+        - name: locust-master
+          image: mangseng/locust:master
+          ports:
+            - name: loc-master-web
+              containerPort: 8089
+              protocol: TCP
+            - name: loc-master-p1
+              containerPort: 5557
+              protocol: TCP
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: locust-master
+spec:
+  type: NodePort
+  selector:
+    k8s-app: locust-master
+  ports:
+    - port: 8089
+      targetPort: loc-master-web
+      nodePort: 32109
+      protocol: TCP
+      name: loc-master-web
+    - port: 5557
+      targetPort: loc-master-p1
+      protocol: TCP
+      name: loc-master-p1
