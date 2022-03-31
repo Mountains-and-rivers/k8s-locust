@@ -1407,6 +1407,15 @@ RUN cd /usr/local/locust && \
 ENTRYPOINT ["locust","-f","/usr/local/locust/locustflask.py","--master"]
 ````
 
+操作
+
+```
+docker build -t mangseng/locust:master .
+docker push  mangseng/locust:master
+```
+
+
+
 worker 镜像制作
 
 ```
@@ -1424,6 +1433,15 @@ RUN cd /usr/local/locust && \
     pip3 install prometheus_client -i http://pypi.douban.com/simple --trusted-host pypi.douban.com && \
     ln -s /usr/local/python3/bin/locust /usr/bin/locust
 ```
+
+操作
+
+```
+docker build -t mangseng/locust:worker .
+docker push  mangseng/locust:worker
+```
+
+
 
 部署master
 
