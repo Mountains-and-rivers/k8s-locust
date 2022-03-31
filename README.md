@@ -1451,3 +1451,25 @@ kubectl apply -f worker-deployment.yaml
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/22.png)
 
 对接grafana
+
+```
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: locust-metrics
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      k8s-app: locust-master
+  namespaceSelector:
+    matchNames:
+    - default
+  podMetricsEndpoints:
+  - port: loc-master-web
+    path: /export/prometheus
+```
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/23.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/24.png)
