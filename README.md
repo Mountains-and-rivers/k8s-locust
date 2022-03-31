@@ -3,6 +3,8 @@ eladmin部署参考：https://github.com/elunez/eladmin
 
 修改后的代码打包至release中
 
+主要修改了验证码生成部分，进程启动，固定验证码
+
 ## 一，环境信息
 
 | 节点     | k8s节点 | os         | IP             | 服务                      | SDK                              |
@@ -692,5 +694,625 @@ http {
 
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/11.png)
 
+## 六，部署dashbroad
 
+当前部署dashboard版本:v2.2.0,注意检查dashboard版本与kubernetes版本兼容性
+
+```
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.2.0/aio/deploy/recommended.yaml
+```
+
+#或者下载yaml文件手动修改service部分
+
+```
+spec:  type: NodePort  ports:    - port: 443      targetPort: 8443      nodePort: 30443  selector:    k8s-app: kubernetes-dashboard
+```
+
+访问
+
+```
+https://192.168.31.243:30443/
+```
+
+创建登陆用户
+
+```
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: admin-user
+  namespace: kubernetes-dashboard
+```
+
+操作：
+
+```
+kubectl apply -f dashboard-adminuser.yaml
+```
+
+
+说明：上面创建了一个叫admin-user的服务账号，并放在kubernetes-dashboard 命名空间下，并将cluster-admin角色绑定到admin-user账户，这样admin-user账户就有了管理员的权限。默认情况下，kubeadm创建集群时已经创建了cluster-admin角色，我们直接绑定即可。
+
+查看admin-user账户的token
+
+```
+kubectl -n kubernetes-dashboard describe secret $(kubectl -n kubernetes-dashboard get secret | grep admin-user | awk '{print $1}')
+```
+
+把获取到的Token复制到登录界面的Token输入框中，成功登陆dashboard
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/12.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/13.png)
+
+通过ingress方式将dashboard暴露到集群外是更好的选择，需要自行部署，参考：
+
+ trafik
+
+contour
+
+nginx-ingress
+
+metallb
+
+### dashboard超时
+
+默认dashboard登录超时时间是15min，可以为dashboard容器增加-- token-ttl参数自定义超时时间： 参考： https://github.com/kubernetes/dashboard/blob/master/docs/common/dashboard-arguments.md
+
+修改yaml配置超时时间12h:
+
+```
+ more recommended.yaml...          args:            - --auto-generate-certificates            - --namespace=kubernetes-dashboard            - --token-ttl=43200...
+更新配置:
+```
+
+ kubectl apply -f recommended.yaml
+其他说明:
+
+整个dashboard可以对大部分资源进行性能监控，修改和删除操作，可自行体验
+
+dashboard支持删除node节点，可以选择cluster，node列表中执行操作
+
+dashboard支持暗黑模式，可以在settings中设置
+
+
+
+七 部署集群监控Prometheus&Grafana
+-----------------------------------
+Kube-promethues 版本： 0.7.0
+
+Kubernetes 版本： 1.21
+
+由于它的文件都存放在项目源码的 manifests 文件夹下，所以需要进入其中进行启动这些 kubernetes 应用 yaml 文件。又由于这些文件堆放在一起，不利于分类启动，所以这里将它们分类。
+
+ Prometheus Operator 源码
+
+```
+wget https://github.com/coreos/kube-prometheus/archive/v0.7.0.tar.gz
+```
+
+解压
+
+```
+tar -zxvf v0.6.0.tar.gz
+```
+
+进入源码的 manifests 文件夹：
+
+```
+cd kube-prometheus-0.7.0/manifests/
+```
+
+创建文件夹并且将 yaml 文件分类：
+
+```
+# 创建文件夹
+mkdir -p node-exporter alertmanager grafana kube-state-metrics prometheus serviceMonitor adapter
+# 移动 yaml 文件，进行分类到各个文件夹下
+mv *-serviceMonitor* serviceMonitor/
+mv grafana-* grafana/
+mv kube-state-metrics-* kube-state-metrics/
+mv alertmanager-* alertmanager/
+mv node-exporter-* node-exporter/
+mv prometheus-adapter* adapter/
+mv prometheus-* prometheus/
+```
+
+修改Service端口设置
+
+vim prometheus/prometheus-service.yaml
+
+```
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    prometheus: k8s
+  name: prometheus-k8s
+  namespace: monitoring
+spec:
+  type: NodePort
+  ports:
+  - name: web
+    port: 9090
+    targetPort: web
+    nodePort: 32101
+  selector:
+    app: prometheus
+    prometheus: k8s
+  sessionAffinity: ClientIP
+```
+
+修改 Grafana Service
+
+vim grafana/grafana-service.yaml
+
+```
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: grafana
+  name: grafana
+  namespace: monitoring
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 3000
+    targetPort: http
+    nodePort: 32102
+  selector:
+    app: grafana
+```
+
+安装Prometheus Operator
+
+```
+kubectl apply -f setup/
+```
+
+这会创建一个名为 monitoring 的命名空间，以及相关的 CRD 资源对象声明和 Prometheus Operator 控制器。前面中我们介绍过 CRD 和 Operator 的使用，当我们声明完 CRD 过后，就可以来自定义资源清单了，但是要让我们声明的自定义资源对象生效就需要安装对应的 Operator 控制器，这里我们都已经安装了，所以接下来就可以来用 CRD 创建真正的自定义资源对象了。其实在 manifests 目录下面的就是我们要去创建的 Prometheus、Alertmanager 以及各种监控对象的资源清单
+
+安装其它组件
+没有特殊的定制需求我们可以直接一键安装：
+
+```
+ kubectl apply -f adapter/
+ kubectl apply -f alertmanager/
+ kubectl apply -f node-exporter/
+ kubectl apply -f kube-state-metrics/
+ kubectl apply -f grafana/
+ kubectl apply -f prometheus/
+ kubectl apply -f serviceMonitor/
+```
+
+查看Prometheus & Grafana
+
+访问http://192.168.31.243:32101/
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/14.png)
+
+访问http://192.168.31.243:32102/
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/15.png)
+
+默认用户名:admin
+
+默认密码:admin
+
+## 八，编写locust脚本
+
+locustflask.py
+
+```
+from locust import HttpUser, task, constant,SequentialTaskSet,TaskSet,events
+import logging as log
+import json
+
+import six
+from itertools import chain
+
+from flask import request, Response
+from locust import stats as locust_stats, runners as locust_runners
+from locust import events
+from prometheus_client import Metric, REGISTRY, exposition
+
+# This locustfile adds an external web endpoint to the locust master, and makes it serve as a prometheus exporter.
+# Runs it as a normal locustfile, then points prometheus to it.
+# locust -f prometheus_exporter.py --master
+
+# Lots of code taken from [mbolek's locust_exporter](https://github.com/mbolek/locust_exporter), thx mbolek!
+
+
+class LocustCollector(object):
+    registry = REGISTRY
+
+    def __init__(self, environment, runner):
+        self.environment = environment
+        self.runner = runner
+
+    def collect(self):
+        # collect metrics only when locust runner is spawning or running.
+        runner = self.runner
+
+        if runner and runner.state in (locust_runners.STATE_SPAWNING, locust_runners.STATE_RUNNING):
+            stats = []
+            for s in chain(locust_stats.sort_stats(runner.stats.entries), [runner.stats.total]):
+                stats.append({
+                    "method": s.method,
+                    "name": s.name,
+                    "num_requests": s.num_requests,
+                    "num_failures": s.num_failures,
+                    "avg_response_time": s.avg_response_time,
+                    "min_response_time": s.min_response_time or 0,
+                    "max_response_time": s.max_response_time,
+                    "current_rps": s.current_rps,
+                    "median_response_time": s.median_response_time,
+                    "ninetieth_response_time": s.get_response_time_percentile(0.9),
+                    # only total stats can use current_response_time, so sad.
+                    # "current_response_time_percentile_95": s.get_current_response_time_percentile(0.95),
+                    "avg_content_length": s.avg_content_length,
+                    "current_fail_per_sec": s.current_fail_per_sec
+                })
+
+            # perhaps StatsError.parse_error in e.to_dict only works in python slave, take notices!
+            errors = [e.to_dict() for e in six.itervalues(runner.stats.errors)]
+
+            metric = Metric('locust_user_count', 'Swarmed users', 'gauge')
+            metric.add_sample('locust_user_count', value=runner.user_count, labels={})
+            yield metric
+
+            metric = Metric('locust_errors', 'Locust requests errors', 'gauge')
+            for err in errors:
+                metric.add_sample('locust_errors', value=err['occurrences'],
+                                  labels={'path': err['name'], 'method': err['method'],
+                                          'error': err['error']})
+            yield metric
+
+            is_distributed = isinstance(runner, locust_runners.MasterRunner)
+            if is_distributed:
+                metric = Metric('locust_slave_count', 'Locust number of slaves', 'gauge')
+                metric.add_sample('locust_slave_count', value=len(runner.clients.values()), labels={})
+                yield metric
+
+            metric = Metric('locust_fail_ratio', 'Locust failure ratio', 'gauge')
+            metric.add_sample('locust_fail_ratio', value=runner.stats.total.fail_ratio, labels={})
+            yield metric
+
+            metric = Metric('locust_state', 'State of the locust swarm', 'gauge')
+            metric.add_sample('locust_state', value=1, labels={'state': runner.state})
+            yield metric
+
+            stats_metrics = ['avg_content_length', 'avg_response_time', 'current_rps', 'current_fail_per_sec',
+                             'max_response_time', 'ninetieth_response_time', 'median_response_time',
+                             'min_response_time',
+                             'num_failures', 'num_requests']
+
+            for mtr in stats_metrics:
+                mtype = 'gauge'
+                if mtr in ['num_requests', 'num_failures']:
+                    mtype = 'counter'
+                metric = Metric('locust_stats_' + mtr, 'Locust stats ' + mtr, mtype)
+                for stat in stats:
+                    # Aggregated stat's method label is None, so name it as Aggregated
+                    # locust has changed name Total to Aggregated since 0.12.1
+                    if 'Aggregated' != stat['name']:
+                        metric.add_sample('locust_stats_' + mtr, value=stat[mtr],
+                                          labels={'path': stat['name'], 'method': stat['method']})
+                    else:
+                        metric.add_sample('locust_stats_' + mtr, value=stat[mtr],
+                                          labels={'path': stat['name'], 'method': 'Aggregated'})
+                yield metric
+
+
+# prometheus监听端口
+@events.init.add_listener
+def locust_init(environment, runner, **kwargs):
+    print("locust init event received")
+    if environment.web_ui and runner:
+        @environment.web_ui.app.route("/export/prometheus")
+        def prometheus_exporter():
+            registry = REGISTRY
+            encoder, content_type = exposition.choose_encoder(request.headers.get('Accept'))
+            if 'name[]' in request.args:
+                registry = REGISTRY.restricted_registry(request.args.get('name[]'))
+            body = encoder(registry)
+            return Response(body, content_type=content_type)
+
+        REGISTRY.register(LocustCollector(environment, runner))
+
+@events.test_start.add_listener
+def on_start(**kwargs):
+    log.info("A test will start...")
+
+@events.test_stop.add_listener
+def on_stop(**kwargs):
+    log.info("A test is ending...")
+
+# 该类中的任务执行顺序是 index ---> login  Task 可以加到类上
+WEB_HEADER = None
+
+# 无序并发任务
+class SetTask(TaskSet):
+    @task(1)
+    def getLogDetail(self):
+        deatil_url = "/auth/online?page=0&size=10&sort=id%2Cdesc"
+        with self.client.request(method='GET',
+                                 url=deatil_url,
+                                 headers=WEB_HEADER,
+                                 name='获取日志详情') as response:
+            log.info("11111111111111111111111111111111111")
+            #log.info(response.text)
+    @task
+    def stop(self):
+        log.info("33333333333333333333333333333333")
+        self.interrupt()
+# 有序序并发任务
+class FlaskTask(SequentialTaskSet): #该类下没有智能提示
+    # 登录获取 token，拼接后续请求头
+    def on_start(self):
+        res = self.client.request(method='GET', url="/auth/code",name="获取验证码")
+        uuid = res.json()['uuid']
+        headers = {
+            "content-type": "application/json;charset=UTF-8",
+        }
+        datda_info = {
+            "code": "15",
+            "password": "B0GdcVWB+XtTwsyBjzoRkn8VnSgtPVKpl8mp7AuQ+BTeU030grUkRwmOHXFCjEhKXB7yezBS7dFEJ63ykR2piQ==",
+            "username": "admin",
+            "uuid": uuid
+        }
+        with self.client.request(method='POST',url="/auth/login", headers=headers, catch_response=True,data=json.dumps(datda_info),name="获取token") as response:
+            self.token = response.json()['token']
+            if response.status_code == 200:
+                self.token = response.json()['token']
+                response.success()
+            else:
+                response.failure("获取token失败")
+            global WEB_HEADER
+            WEB_HEADER = {
+                "Authorization": self.token
+            }
+    #嵌套无序并发任务
+    tasks = [SetTask]
+    @task #关联登录成功后的token，也即 前一个业务返回的业务需要传递给后续的请求
+    def getUserDetail(self):
+        deatil_url = "/api/dictDetail?dictName=user_status&page=0&size=9999"
+        with self.client.request(method='GET',
+                                 url=deatil_url,
+                                 headers=WEB_HEADER,
+                                 name='获取用户详情') as response:
+            log.info("22222222222222222222222222222222222222")
+            log.info(response.text)
+
+def function_task():
+    log.info("This is the function task")
+
+class FlaskUser(HttpUser):
+    host = 'http://192.168.31.243:30080'  # 设置根地址
+    wait_time = constant(1)  # 每次请求的延时时间
+    #wait_time = between(1,3)  # 等待时间1~3s
+    tasks = [FlaskTask] # 指定测试任务
+```
+
+prometheus_exporter.py
+
+```
+import six
+from itertools import chain
+
+from flask import request, Response
+from locust import stats as locust_stats, runners as locust_runners
+from locust import events
+from prometheus_client import Metric, REGISTRY, exposition
+
+# This locustfile adds an external web endpoint to the locust master, and makes it serve as a prometheus exporter.
+# Runs it as a normal locustfile, then points prometheus to it.
+# locust -f prometheus_exporter.py --master
+
+# Lots of code taken from [mbolek's locust_exporter](https://github.com/mbolek/locust_exporter), thx mbolek!
+
+
+class LocustCollector(object):
+    registry = REGISTRY
+
+    def __init__(self, environment, runner):
+        self.environment = environment
+        self.runner = runner
+
+    def collect(self):
+        # collect metrics only when locust runner is spawning or running.
+        runner = self.runner
+
+        if runner and runner.state in (locust_runners.STATE_SPAWNING, locust_runners.STATE_RUNNING):
+            stats = []
+            for s in chain(locust_stats.sort_stats(runner.stats.entries), [runner.stats.total]):
+                stats.append({
+                    "method": s.method,
+                    "name": s.name,
+                    "num_requests": s.num_requests,
+                    "num_failures": s.num_failures,
+                    "avg_response_time": s.avg_response_time,
+                    "min_response_time": s.min_response_time or 0,
+                    "max_response_time": s.max_response_time,
+                    "current_rps": s.current_rps,
+                    "median_response_time": s.median_response_time,
+                    "ninetieth_response_time": s.get_response_time_percentile(0.9),
+                    # only total stats can use current_response_time, so sad.
+                    # "current_response_time_percentile_95": s.get_current_response_time_percentile(0.95),
+                    "avg_content_length": s.avg_content_length,
+                    "current_fail_per_sec": s.current_fail_per_sec
+                })
+
+            # perhaps StatsError.parse_error in e.to_dict only works in python slave, take notices!
+            errors = [e.to_dict() for e in six.itervalues(runner.stats.errors)]
+
+            metric = Metric('locust_user_count', 'Swarmed users', 'gauge')
+            metric.add_sample('locust_user_count', value=runner.user_count, labels={})
+            yield metric
+
+            metric = Metric('locust_errors', 'Locust requests errors', 'gauge')
+            for err in errors:
+                metric.add_sample('locust_errors', value=err['occurrences'],
+                                  labels={'path': err['name'], 'method': err['method'],
+                                          'error': err['error']})
+            yield metric
+
+            is_distributed = isinstance(runner, locust_runners.MasterRunner)
+            if is_distributed:
+                metric = Metric('locust_slave_count', 'Locust number of slaves', 'gauge')
+                metric.add_sample('locust_slave_count', value=len(runner.clients.values()), labels={})
+                yield metric
+
+            metric = Metric('locust_fail_ratio', 'Locust failure ratio', 'gauge')
+            metric.add_sample('locust_fail_ratio', value=runner.stats.total.fail_ratio, labels={})
+            yield metric
+
+            metric = Metric('locust_state', 'State of the locust swarm', 'gauge')
+            metric.add_sample('locust_state', value=1, labels={'state': runner.state})
+            yield metric
+
+            stats_metrics = ['avg_content_length', 'avg_response_time', 'current_rps', 'current_fail_per_sec',
+                             'max_response_time', 'ninetieth_response_time', 'median_response_time',
+                             'min_response_time',
+                             'num_failures', 'num_requests']
+
+            for mtr in stats_metrics:
+                mtype = 'gauge'
+                if mtr in ['num_requests', 'num_failures']:
+                    mtype = 'counter'
+                metric = Metric('locust_stats_' + mtr, 'Locust stats ' + mtr, mtype)
+                for stat in stats:
+                    # Aggregated stat's method label is None, so name it as Aggregated
+                    # locust has changed name Total to Aggregated since 0.12.1
+                    if 'Aggregated' != stat['name']:
+                        metric.add_sample('locust_stats_' + mtr, value=stat[mtr],
+                                          labels={'path': stat['name'], 'method': stat['method']})
+                    else:
+                        metric.add_sample('locust_stats_' + mtr, value=stat[mtr],
+                                          labels={'path': stat['name'], 'method': 'Aggregated'})
+                yield metric
+
+
+# prometheus监听端口
+@events.init.add_listener
+def locust_init(environment, runner, **kwargs):
+    print("locust init event received")
+    if environment.web_ui and runner:
+        @environment.web_ui.app.route("/export/prometheus")
+        def prometheus_exporter():
+            registry = REGISTRY
+            encoder, content_type = exposition.choose_encoder(request.headers.get('Accept'))
+            if 'name[]' in request.args:
+                registry = REGISTRY.restricted_registry(request.args.get('name[]'))
+            body = encoder(registry)
+            return Response(body, content_type=content_type)
+
+        REGISTRY.register(LocustCollector(environment, runner))
+```
+
+在worker节点启动master 和 woker
+
+终端1
+
+```
+locust -f locustflask.py --master
+```
+
+终端2
+
+```
+locust -f locustflask.py --worker  --master-host=192.168.31.243
+```
+
+### 九，metrics注册到prometheus
+
+prometheus_exporter.yaml
+
+```
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: locust-data
+subsets:
+- addresses:
+  - ip: 192.168.31.243
+  ports:
+  - port: 8089
+    name: locust
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: locust-data
+  labels:
+    app: locust-data
+spec:
+  ports:
+  - port: 8089
+    targetPort: 8089
+    name: locust
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: prometheus
+    prometheus: prometheus
+  name: locust-data
+spec:
+  endpoints:
+  - interval: 1s
+    path: /export/prometheus
+    targetPort: 8089
+    port: locust
+  jobLabel: k8s-app
+  namespaceSelector:
+    matchNames:
+    - default
+  selector:
+    matchLabels:
+      app: locust-data
+```
+
+操作
+
+```
+kubectl apply -f prometheus_exporter.yaml
+```
+
+验证
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/15.png)
+
+## 十，prometheus配置到grafana数据源
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/16.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/17.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/18.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/19.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/20.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/21.png)
+
+至此，locust测试的数据就可以用grafana展示了
 
