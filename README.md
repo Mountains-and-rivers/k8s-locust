@@ -1569,7 +1569,7 @@ kubectl apply -f prometheus_exporter.yaml
 
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/24.png)
 
-### 十二，woker节点改用boomer
+### 十二，worker节点改用boomer
 
 TODO--:
 
