@@ -1576,7 +1576,7 @@ TODO--:
 ```
 参考：https://github.com/myzhan/boomer
 
-编写woker负载脚本，编译，替换woker docker打包的脚本，yaml配置这command使用可执行文件启动
+编写woker负载脚本，编译，替换woker docker打包的脚本，yaml配置中command使用可执行文件启动
 ```
 
 参考如下：
