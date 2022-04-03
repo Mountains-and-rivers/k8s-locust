@@ -806,7 +806,7 @@ wget https://github.com/coreos/kube-prometheus/archive/v0.7.0.tar.gz
 解压
 
 ```
-tar -zxvf v0.6.0.tar.gz
+tar -zxvf v0.7.0.tar.gz
 ```
 
 进入源码的 manifests 文件夹：
@@ -1568,6 +1568,79 @@ kubectl apply -f prometheus_exporter.yaml
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/23.png)
 
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/24.png)
+
+### 十二，woker节点改用boomer
+
+TODO--:
+
+```
+参考：https://github.com/myzhan/boomer
+
+编写woker负载脚本，编译，替换woker docker打包的脚本，yaml配置这command使用可执行文件启动
+```
+
+参考如下：
+
+```
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: locust-slave-controller
+  namespace: boomer
+  labels:
+    k8s-app: locust-slave
+spec:
+  selector:
+    matchLabels:
+      k8s-app: locust-slave
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        k8s-app: locust-slave
+        name: locust-slave
+    spec:
+      containers:
+        - name: locust-slave
+          image: image/locust-slave:latest
+          command: ["./main", "--master-host=locust-master", "--master-port=5557", "--url=svc.namespace:app_port"]
+```
+
+### 十三，结果分析
+
+##### 性能测试四大模块：
+
+1. 脚本开发： 依赖工具  协议
+
+2. 场景设计：四件事--
+
+   1，压力曲线图（业务和性能测试目的） 性能测试 负载测试 压力测试 基准测试，容量测试，配置测试 
+
+   评估性能如何？
+
+   2，监控 
+
+   ​      工具：分布式zabbix  netdata
+
+   ​       OS自带：vmstat/top/nmon
+
+   influxdb
+
+   Prometheus
+
+   3， 压力  
+
+   4，设置
+
+3. 结果分析
+
+   第一个层次：基本性能指标：响应时间，吞吐量，资源利用率
+
+   第二个层次：后端监控--瓶颈优化：代码(jvm),中间件，数据库
+
+   jstat VisualVM
+
+4. 性能调优
 
 
 
