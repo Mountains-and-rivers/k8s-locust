@@ -15,6 +15,13 @@ eladmin部署参考：https://github.com/elunez/eladmin
 | worker03 | true    | centos8.3  | 192.168.31.132 | eladmin                   |                                  |
 | win11-pc | false   | windows 11 | 192.168.31.217 | nginx/eladmin-web         | node/v16.14.0  jdk/1.8.0_321-b07 |
 
+##### 工具版本
+
+| 框架   | 版本   |      |
+| ------ | ------ | ---- |
+| locust | 2.8.4  |      |
+| boomer | master |      |
+
 ![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/1.png)
 
 ## 二，搭建集群
@@ -1505,7 +1512,6 @@ kubectl apply -f master-deployment.yaml
 部署worker
 
 ```
----
 kind: Deployment
 apiVersion: apps/v1
 metadata:
@@ -1571,29 +1577,250 @@ kubectl apply -f prometheus_exporter.yaml
 
 ### 十二，worker节点改用boomer
 
-TODO--:
+master节点 dummy.py
+
+````
+# coding: utf8
+
+import six
+from itertools import chain
+
+from flask import request, Response
+from locust import stats as locust_stats, runners as locust_runners
+from locust import User, task, events
+from prometheus_client import Metric, REGISTRY, exposition
+
+
+# This locustfile adds an external web endpoint to the locust master, and makes it serve as a prometheus exporter.
+# Runs it as a normal locustfile, then points prometheus to it.
+# locust -f prometheus_exporter.py --master
+
+# Lots of code taken from [mbolek's locust_exporter](https://github.com/mbolek/locust_exporter), thx mbolek!
+
+
+class LocustCollector(object):
+    registry = REGISTRY
+
+    def __init__(self, environment, runner):
+        self.environment = environment
+        self.runner = runner
+
+    def collect(self):
+        # collect metrics only when locust runner is spawning or running.
+        runner = self.runner
+
+        if runner and runner.state in (locust_runners.STATE_SPAWNING, locust_runners.STATE_RUNNING):
+            stats = []
+            for s in chain(locust_stats.sort_stats(runner.stats.entries), [runner.stats.total]):
+                stats.append({
+                    "method": s.method,
+                    "name": s.name,
+                    "num_requests": s.num_requests,
+                    "num_failures": s.num_failures,
+                    "avg_response_time": s.avg_response_time,
+                    "min_response_time": s.min_response_time or 0,
+                    "max_response_time": s.max_response_time,
+                    "current_rps": s.current_rps,
+                    "median_response_time": s.median_response_time,
+                    "ninetieth_response_time": s.get_response_time_percentile(0.9),
+                    # only total stats can use current_response_time, so sad.
+                    # "current_response_time_percentile_95": s.get_current_response_time_percentile(0.95),
+                    "avg_content_length": s.avg_content_length,
+                    "current_fail_per_sec": s.current_fail_per_sec
+                })
+
+            # perhaps StatsError.parse_error in e.to_dict only works in python slave, take notices!
+            errors = [e.to_dict() for e in six.itervalues(runner.stats.errors)]
+
+            metric = Metric('locust_user_count', 'Swarmed users', 'gauge')
+            metric.add_sample('locust_user_count', value=runner.user_count, labels={})
+            yield metric
+
+            metric = Metric('locust_errors', 'Locust requests errors', 'gauge')
+            for err in errors:
+                metric.add_sample('locust_errors', value=err['occurrences'],
+                                  labels={'path': err['name'], 'method': err['method'],
+                                          'error': err['error']})
+            yield metric
+
+            is_distributed = isinstance(runner, locust_runners.MasterRunner)
+            if is_distributed:
+                metric = Metric('locust_slave_count', 'Locust number of slaves', 'gauge')
+                metric.add_sample('locust_slave_count', value=len(runner.clients.values()), labels={})
+                yield metric
+
+            metric = Metric('locust_fail_ratio', 'Locust failure ratio', 'gauge')
+            metric.add_sample('locust_fail_ratio', value=runner.stats.total.fail_ratio, labels={})
+            yield metric
+
+            metric = Metric('locust_state', 'State of the locust swarm', 'gauge')
+            metric.add_sample('locust_state', value=1, labels={'state': runner.state})
+            yield metric
+
+            stats_metrics = ['avg_content_length', 'avg_response_time', 'current_rps', 'current_fail_per_sec',
+                             'max_response_time', 'ninetieth_response_time', 'median_response_time',
+                             'min_response_time',
+                             'num_failures', 'num_requests']
+
+            for mtr in stats_metrics:
+                mtype = 'gauge'
+                if mtr in ['num_requests', 'num_failures']:
+                    mtype = 'counter'
+                metric = Metric('locust_stats_' + mtr, 'Locust stats ' + mtr, mtype)
+                for stat in stats:
+                    # Aggregated stat's method label is None, so name it as Aggregated
+                    # locust has changed name Total to Aggregated since 0.12.1
+                    if 'Aggregated' != stat['name']:
+                        metric.add_sample('locust_stats_' + mtr, value=stat[mtr],
+                                          labels={'path': stat['name'], 'method': stat['method']})
+                    else:
+                        metric.add_sample('locust_stats_' + mtr, value=stat[mtr],
+                                          labels={'path': stat['name'], 'method': 'Aggregated'})
+                yield metric
+
+
+@events.init.add_listener
+def locust_init(environment, runner, **kwargs):
+    print("locust init event received")
+    if environment.web_ui and runner:
+        @environment.web_ui.app.route("/export/prometheus")
+        def prometheus_exporter():
+            registry = REGISTRY
+            encoder, content_type = exposition.choose_encoder(request.headers.get('Accept'))
+            if 'name[]' in request.args:
+                registry = REGISTRY.restricted_registry(request.args.get('name[]'))
+            body = encoder(registry)
+            return Response(body, content_type=content_type)
+
+        REGISTRY.register(LocustCollector(environment, runner))
+
+
+class Dummy(User):
+    @task(20)
+    def hello(self):
+        pass
+````
+
+启动
 
 ```
-参考：https://github.com/myzhan/boomer
-
-编写woker负载脚本，编译，替换woker docker打包的脚本，yaml配置中command使用可执行文件启动
+locust --master -f dummy.py
 ```
 
-参考如下：
+worker 节点
+
+```
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/myzhan/boomer"
+)
+
+func getDemo() {
+	start := time.Now()
+	resp, err := http.Get("http://httpbin.org/get?name=Detector")
+
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+	fmt.Println(resp.Status)
+	elapsed := time.Since(start)
+	if resp.Status == "200 OK" {
+		boomer.RecordSuccess("http", "sostreq", elapsed.Nanoseconds()/int64(time.Millisecond), int64(10))
+	} else {
+		boomer.RecordFailure("http", "sostreq", elapsed.Nanoseconds()/int64(time.Millisecond), "sostreq not equal")
+	}
+}
+
+func postDemo() {
+	start := time.Now()
+
+	info := make(map[string]interface{})
+	info["name"] = "Detector"
+	info["age"] = 15
+	info["loc"] = "深圳"
+	// 将map解析未[]byte类型
+	bytesData, _ := json.Marshal(info)
+	// 将解析之后的数据转为*Reader类型
+	reader := bytes.NewReader(bytesData)
+	resp, _ := http.Post("http://httpbin.org/post",
+		"application/json",
+		reader)
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(body))
+	elapsed := time.Since(start)
+	if resp.Status == "200 OK" {
+		boomer.RecordSuccess("http", "sostreq", elapsed.Nanoseconds()/int64(time.Millisecond), int64(10))
+	} else {
+		boomer.RecordFailure("http", "sostreq", elapsed.Nanoseconds()/int64(time.Millisecond), "sostreq not equal")
+	}
+}
+
+func main() {
+	task1 := &boomer.Task{
+		Name: "sostreq",
+		// The weight is used to distribute goroutines over multiple tasks.
+		Weight: 20,
+		Fn:     getDemo,
+	}
+
+	task2 := &boomer.Task{
+		Name: "sostreq",
+		// The weight is used to distribute goroutines over multiple tasks.
+		Weight: 10,
+		Fn:     postDemo,
+	}
+	boomer.Run(task1, task2)
+}
+
+```
+
+启动
+
+```
+go run .\main.go --master-host=127.0.0.1 --master-port=5557
+```
+
+结果
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/26.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/27.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/28.png)
+
+k8s 部署
+
+docker build 打包
+
+```
+把main 编译后的可执行文件打包到镜像 mangseng/locust-slave
+```
+
+yaml 配置
 
 ```
 kind: Deployment
 apiVersion: apps/v1
 metadata:
   name: locust-slave-controller
-  namespace: boomer
   labels:
     k8s-app: locust-slave
 spec:
   selector:
     matchLabels:
       k8s-app: locust-slave
-  replicas: 3
+  replicas: 1
   template:
     metadata:
       labels:
@@ -1602,9 +1829,37 @@ spec:
     spec:
       containers:
         - name: locust-slave
-          image: image/locust-slave:latest
+          image: mangseng/locust:worker
           command: ["./main", "--master-host=locust-master", "--master-port=5557", "--url=svc.namespace:app_port"]
 ```
+
+对接grafana
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/23.png)
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/24.png)
+
+问题解决：
+
+```
+1,Version 3.0 received does match expected version 3.1
+
+修改D:\golang\src\boomerTest\vendor\github.com\zeromq\gomq\zmtp\protocol.go
+
+把1 改为 0
+```
+
+
+
+![image](https://github.com/Mountains-and-rivers/k8s-locust/blob/main/images/25.png)
+
+```
+2， You can't start a distributed test before at least one worker processes has connected
+
+使用go get -u 拉取boomer，注意如果已经拉取了boomer，清除缓存
+```
+
+
 
 ### 十三，结果分析
 
