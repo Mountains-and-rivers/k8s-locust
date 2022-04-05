@@ -1848,7 +1848,7 @@ spec:
 问题解决：
 
 ```
-1,Version 3.0 received does match expected version 3.1
+1,error gomq/zmtp: Got error while receiving greeting: Version 3.0 received does match expected version 3.1
 
 修改D:\golang\src\boomerTest\vendor\github.com\zeromq\gomq\zmtp\protocol.go
 
