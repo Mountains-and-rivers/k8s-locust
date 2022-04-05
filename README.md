@@ -1885,6 +1885,8 @@ spec:
 
    ​       OS自带：vmstat/top/nmon
 
+   ​       链路追踪 SkyWalking 
+
    influxdb
 
    Prometheus
