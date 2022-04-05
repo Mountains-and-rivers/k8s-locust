@@ -1804,7 +1804,13 @@ k8s 部署
 docker build 打包
 
 ```
-把main 编译后的可执行文件打包到镜像 mangseng/locust-slave
+FROM centos_base:v1
+
+RUN mkdir -p /usr/local/locust
+
+WORKDIR /usr/local/locust
+
+COPY main  /usr/local/locust/main 
 ```
 
 yaml 配置
