@@ -19,10 +19,10 @@ eladmin部署参考：https://github.com/elunez/eladmin
 
 ##### 工具版本
 
-| 框架   | 版本   |
-| ------ | ------ |
-| locust | 2.8.4  |
-| boomer | master |
+| 框架   | 版本       |
+| ------ | ---------- |
+| locust | 2.8.4      |
+| boomer | master分支 |
 
 ```
 ython 的人应该都知道，基于 cpython 编译器的 python 天生就受限于它的全局解释锁 GIL(global interpreter lock)，尽管可以使用 jython、pypy 摆脱 GIL 但是很多经典的库在它们上面还没有经过严格的测试。好在 Locust 使用基于 gevent 的协程来实现并发，实际上，使用了 libev 或者 libuv 作为 eventloop 的 gevent 可以极大地提高 Python 的并发能力，拥有不比 JAVA 多线程并发模型差的能力。然而，还是由于 GIL，gevent 也只是释放了单核 CPU 的能力，导致 Locust 的并发能力必须通过起与 CPU 核数相同的 slave 才能发挥出来。所以负载使用golang开发的boomer可以提高并发能力。
