@@ -1,0 +1,116 @@
+静态方法
+    与类无关，不能访问类里的任何属性和方法
+类方法
+    只能访问类变量
+属性@property
+    把一个方法变成一个静态属性，
+    flight.status
+    @status.setter
+    flight.status = 3
+    @status.delter
+反射
+    getattr(obj,str)
+    setattr(obj,str,val)
+    hasattr(obj,str)
+    delattr(obj,str)
+
+__new__
+class Foo(object):
+    def __call__()
+        print"call"
+
+Foo()() #执行call方法
+
+__metaclass__ 用来定义这个类以怎样的形式被创建
+
+try
+    ...
+except (ValueError,KeyError),e  #in 2.7
+except (ValueError,KeyError) as e : 3.x
+
+except Exception as e:放在异常处理最后面，
+
+else: #没发生异常，就执行
+
+finally, 无论如何都执行
+
+raise ValueError
+
+断言
+assert type(obj.name) is int
+print(obj.name /2)
+
+socket
+    tcp/ip  send, recv
+    udp
+
+    family address
+        AF.INET  ipv4
+        AF.INET6
+        AF.UNIX  。local
+    socket protocol type
+        sock.SOCK_STREAM  tcp/ip
+        socket.SOCK_DGRAM　　 数据报式socket , for UDP
+
+
+    服务端
+    server = socket.socket(AF.INET,sock.SOCK_STREAM)
+    server.bind(localhost,9999)
+    server.listen()
+    while True:
+        conn,addr = server.accept() #阻塞
+        while True:
+           print("new conn",addr)
+           data = conn.recv(1024) #8192  #recv默认是阻塞的
+
+           if not data:
+                break #客户端已断开， conn.recv收到的就都是空数据，
+           print(data)
+           conn.send(data.upper())
+    client
+       client = socket.socket()
+       client.connect(serverip, 9999 )
+       client.send(data)
+       client.send(data)
+       client.recv(dat)
+
+    socket 粘包
+
+    ftp server
+    1. 读取文件名
+    2. 检测文件是否存在
+    3. 打开文件
+    4. 检测文件大小
+    5. 发送文件大小给客户端
+    6. 等客户端确认
+    7. 开始边读边发数据
+    8. 发送md5
+
+
+First, you must create a request handler处理类 class by subclassing the BaseRequestHandler class and overriding覆盖 its handle() method; this method will process incoming requests. 　　
+你必须自己创建一个请求处理类，并且这个类要继承BaseRequestHandler,并且还有重写父亲类里的handle()
+Second, you must instantiate实例化 one of the server classes, passing it the server’s address and the request handler class.
+你必须实例化TCPServer ，并且传递server ip 和 你上面创建的请求处理类 给这个TCPServer
+Then call the handle_request() or serve_forever() method of the server object to process one or many requests.
+server.handle_request() #只处理一个请求
+server.serve_forever() #处理多个一个请求，永远执行
+
+
+Finally, call server_close() to close the socket.
+
+chenronhua
+    a
+        a1
+        a2
+    b
+    c
+chen: cd a
+cd ..
+
+user_current_dir = "/home/chenronghua"
+user_current_dir = "/home/chenronghua"
+
+
+
+
+os.chdir

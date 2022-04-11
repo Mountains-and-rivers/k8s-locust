@@ -1,0 +1,59 @@
+阿甘正传
+辛德勒名单
+肖申克的救赎
+勇敢的心
+角斗士
+拯救大兵瑞恩
+
+美国丽人
+教父
+指环王
+钢琴师
+
+西雅图不眠夜
+廊桥遗梦
+
+可可西里的美丽传说
+放牛班的春天
+
+
+
+血钻
+战争之王
+
+上帝之城
+中央车站
+
+
+猜火车
+低俗小说
+
+华尔街之狼
+
+
+
+
+解耦 =松耦合
+
+db api  ===  select account,password from user_accout
+ mysql  select
+ file   read
+ sqlite selct
+ postgressql get
+
+
+ 还款 =repay
+ 取现 =withdraw
+ 转账 =transfer
+
+ def transaction(trans_type,account,amount,logger,)
+
+transaction(repay,account,500,logger,)
+transaction(withdraw,account,500,logger,)
+
+{
+    repay:[0,0],
+    withdraw: [50%,0.05 ]
+    transfer:[0,0,]
+
+}

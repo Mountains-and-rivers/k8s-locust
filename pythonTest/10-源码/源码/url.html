@@ -1,0 +1,1777 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-cn">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>Python之路,Day9 - 异步IO\数据库\队列\缓存 - 金角大王 - 博客园</title>
+<link type="text/css" rel="stylesheet" href="/bundles/blog-common.css?v=TcLu_VRYP-hjFEuOQ-7LRL7nW7QGyV_7JTjhUjBtzsY1"/>
+<link id="MainCss" type="text/css" rel="stylesheet" href="/skins/SimpleBlue/bundle-SimpleBlue.css?v=jJERBFSojhmgst84aaRDal9S3q1WoO-WcNudmMzGJS81"/>
+<link type="text/css" rel="stylesheet" href="/blog/customcss/214271.css?v=ODe5WmG%2bltDcEYVCzhwetY8uopE%3d"/>
+<link title="RSS" type="application/rss+xml" rel="alternate" href="http://www.cnblogs.com/alex3714/rss"/>
+<link title="RSD" type="application/rsd+xml" rel="EditURI" href="http://www.cnblogs.com/alex3714/rsd.xml"/>
+<link type="application/wlwmanifest+xml" rel="wlwmanifest" href="http://www.cnblogs.com/alex3714/wlwmanifest.xml"/>
+<script src="//common.cnblogs.com/script/jquery.js" type="text/javascript"></script>  
+<script type="text/javascript">var currentBlogApp = 'alex3714', cb_enable_mathjax=false;var isLogined=false;</script>
+<script src="/bundles/blog-common.js?v=rKI0NabnzxvvIBSzdFCwCxsGpkUGi7MXq4LeVEtss3c1" type="text/javascript"></script>
+</head>
+<body>
+<a name="top"></a>
+
+<div id="home">
+<div id="header">
+	<div id="blogTitle">
+		
+<!--done-->
+<div class="title"><a id="Header1_HeaderTitle" class="headermaintitle" href="http://www.cnblogs.com/alex3714/">金角大王等待唐僧的日子</a></div>
+<div class="subtitle">Yesterday, when I was young,
+There were so many songs that waited to be sung.</div>
+
+
+
+		
+	</div><!--end: blogTitle 博客的标题和副标题 -->
+	<div id="navigator">
+		
+<ul id="navList">
+<li id="nav_sitehome"><a id="blog_nav_sitehome" class="menu" href="http://www.cnblogs.com/">博客园</a></li>
+<li id="nav_myhome"><a id="blog_nav_myhome" class="menu" href="http://www.cnblogs.com/alex3714/">首页</a></li>
+<li id="nav_newpost"><a id="blog_nav_newpost" class="menu" rel="nofollow" href="https://i.cnblogs.com/EditPosts.aspx?opt=1">新随笔</a></li>
+<li id="nav_contact"><a id="blog_nav_contact" class="menu" rel="nofollow" href="https://msg.cnblogs.com/send/%E9%87%91%E8%A7%92%E5%A4%A7%E7%8E%8B">联系</a></li>
+<li id="nav_rss"><a id="blog_nav_rss" class="menu" href="http://www.cnblogs.com/alex3714/rss">订阅</a>
+<!--<a id="blog_nav_rss_image" class="aHeaderXML" href="http://www.cnblogs.com/alex3714/rss"><img src="//www.cnblogs.com/images/xml.gif" alt="订阅" /></a>--></li>
+<li id="nav_admin"><a id="blog_nav_admin" class="menu" rel="nofollow" href="https://i.cnblogs.com/">管理</a></li>
+</ul>
+
+		<div class="blogStats">
+			
+			
+<!--done-->
+随笔-2&nbsp;
+文章-32&nbsp;
+评论-12&nbsp;
+
+			
+		</div><!--end: blogStats -->
+	</div><!--end: navigator 博客导航栏 -->
+</div><!--end: header 头部 -->
+<div id="main">
+	<div id="mainContent">
+	<div class="forFlow">
+		
+<div id="post_detail">
+<!--done-->
+<div id="topics">
+	<div class = "post">
+		<h1 class = "postTitle">
+			<a id="cb_post_title_url" class="postTitle2" href="http://www.cnblogs.com/alex3714/articles/5248247.html">Python之路,Day9 - 异步IO\数据库\队列\缓存</a>
+		</h1>
+		<div class="clear"></div>
+		<div class="postBody">
+			<div id="cnblogs_post_body"><p>本节内容</p>
+<ol>
+<li>Gevent协程</li>
+<li>Select\Poll\Epoll异步IO与事件驱动</li>
+<li>Python连接Mysql数据库操作</li>
+<li>RabbitMQ队列</li>
+<li>Redis\Memcached缓存</li>
+<li>Paramiko SSH</li>
+<li>Twsited网络框架</li>
+</ol>
+<p>&nbsp;</p>
+<h2>&nbsp;</h2>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2>协程</h2>
+<p>协程，又称微线程，纤程。英文名Coroutine。一句话说明什么是线程：<strong>协程是一种用户态的轻量级线程</strong>。</p>
+<p>协程拥有自己的寄存器上下文和栈。协程调度切换时，将寄存器上下文和栈保存到其他地方，在切回来的时候，恢复先前保存的寄存器上下文和栈。因此：</p>
+<p>协程能保留上一次调用时的状态（即所有局部状态的一个特定组合），每次过程重入时，就相当于进入上一次调用的状态，换种说法：进入上一次离开时所处逻辑流的位置。</p>
+<p>&nbsp;</p>
+<p>协程的好处：</p>
+<ul>
+<li>无需线程上下文切换的开销</li>
+<li>无需原子操作锁定及同步的开销</li>
+<li>方便切换控制流，简化编程模型</li>
+<li>高并发+高扩展性+低成本：一个CPU支持上万的协程都不是问题。所以很适合用于高并发处理。</li>
+</ul>
+<p>缺点：</p>
+<ul>
+<li>无法利用多核资源：协程的本质是个单线程,它不能同时将 单个CPU 的多个核用上,协程需要和进程配合才能运行在多CPU上.当然我们日常所编写的绝大部分应用都没有这个必要，除非是cpu密集型应用。</li>
+<li>进行阻塞（Blocking）操作（如IO时）会阻塞掉整个程序</li>
+</ul>
+<p>使用yield实现协程操作例子　　　　</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">import time
+import queue
+def consumer(name):
+    print("---&gt;starting eating baozi...")
+    while True:
+        new_baozi = yield
+        print("[%s] is eating baozi %s" % (name,new_baozi))
+        #time.sleep(1)
+
+def producer():
+
+    r = con.__next__()
+    r = con2.__next__()
+    n = 0
+    while n &lt; 5:
+        n +=1
+        con.send(n)
+        con2.send(n)
+        print("\033[32;1m[producer]\033[0m is making baozi %s" %n )
+
+
+if __name__ == '__main__':
+    con = consumer("c1")
+    con2 = consumer("c2")
+    p = producer()
+</pre>
+</div>
+<h3>Greenlet</h3>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+ 
+ 
+from greenlet import greenlet
+ 
+ 
+def test1():
+    print 12
+    gr2.switch()
+    print 34
+    gr2.switch()
+ 
+ 
+def test2():
+    print 56
+    gr1.switch()
+    print 78
+ 
+gr1 = greenlet(test1)
+gr2 = greenlet(test2)
+gr1.switch()
+</pre>
+</div>
+<p>　　</p>
+<h3>Gevent&nbsp;</h3>
+<p>Gevent 是一个第三方库，可以轻松通过gevent实现并发同步或异步编程，在gevent中用到的主要模式是<strong>Greenlet</strong>, 它是以C扩展模块形式接入Python的轻量级协程。 Greenlet全部运行在主程序操作系统进程的内部，但它们被协作式地调度。</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">import gevent
+
+def foo():
+    print('Running in foo')
+    gevent.sleep(0)
+    print('Explicit context switch to foo again')
+
+def bar():
+    print('Explicit context to bar')
+    gevent.sleep(0)
+    print('Implicit context switch back to bar')
+
+gevent.joinall([
+    gevent.spawn(foo),
+    gevent.spawn(bar),
+])
+</pre>
+</div>
+<p>输出：</p>
+<pre><code class="python" data-result="[object Object]">Running <span class="keyword">in foo
+Explicit context to bar
+Explicit context switch to foo again
+Implicit context switch back to bar
+</span></code></pre>
+<p><strong>同步与异步的性能区别&nbsp;</strong></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">import gevent
+
+def task(pid):
+    """
+    Some non-deterministic task
+    """
+    gevent.sleep(0.5)
+    print('Task %s done' % pid)
+
+def synchronous():
+    for i in range(1,10):
+        task(i)
+
+def asynchronous():
+    threads = [gevent.spawn(task, i) for i in range(10)]
+    gevent.joinall(threads)
+
+print('Synchronous:')
+synchronous()
+
+print('Asynchronous:')
+asynchronous()
+</pre>
+</div>
+<p>上面程序的重要部分是将task函数封装到Greenlet内部线程的<code>gevent.spawn</code>。 初始化的greenlet列表存放在数组<code>threads</code>中，此数组被传给<code>gevent.joinall</code>&nbsp;函数，后者阻塞当前流程，并执行所有给定的greenlet。执行流程只会在 所有greenlet执行完后才会继续向下走。　　</p>
+<p><strong>遇到IO阻塞时会自动切换任务</strong></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">from gevent import monkey; monkey.patch_all()
+import gevent
+from  urllib.request import urlopen
+
+def f(url):
+    print('GET: %s' % url)
+    resp = urlopen(url)
+    data = resp.read()
+    print('%d bytes received from %s.' % (len(data), url))
+
+gevent.joinall([
+        gevent.spawn(f, 'https://www.python.org/'),
+        gevent.spawn(f, 'https://www.yahoo.com/'),
+        gevent.spawn(f, 'https://github.com/'),
+])</pre>
+</div>
+<p>&nbsp;</p>
+<p><strong>通过gevent实现单线程下的多socket并发</strong></p>
+<p><strong>server side&nbsp;</strong></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">import sys
+import socket
+import time
+import gevent
+
+from gevent import socket,monkey
+monkey.patch_all()
+
+
+def server(port):
+    s = socket.socket()
+    s.bind(('0.0.0.0', port))
+    s.listen(500)
+    while True:
+        cli, addr = s.accept()
+        gevent.spawn(handle_request, cli)
+
+
+
+def handle_request(conn):
+    try:
+        while True:
+            data = conn.recv(1024)
+            print("recv:", data)
+            conn.send(data)
+            if not data:
+                conn.shutdown(socket.SHUT_WR)
+
+    except Exception as  ex:
+        print(ex)
+    finally:
+        conn.close()
+if __name__ == '__main__':
+    server(8001)
+</pre>
+</div>
+<p>　　</p>
+<p><strong>client side 　　</strong></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">import socket
+
+HOST = 'localhost'    # The remote host
+PORT = 8001           # The same port as used by the server
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((HOST, PORT))
+while True:
+    msg = bytes(input("&gt;&gt;:"),encoding="utf8")
+    s.sendall(msg)
+    data = s.recv(1024)
+    #print(data)
+
+    print('Received', repr(data))
+s.close()
+</pre>
+</div>
+<p>　　</p>
+<h3>论事件驱动与异步IO</h3>
+<div class="para">通常，我们写服务器处理模型的程序时，有以下几种模型：</div>
+<div class="para">（1）每收到一个请求，创建一个新的进程，来处理该请求；</div>
+<div class="para">（2）每收到一个请求，创建一个新的线程，来处理该请求；</div>
+<div class="para">（3）每收到一个请求，放入一个事件列表，让主进程通过非阻塞I/O方式来处理请求</div>
+<div class="para">上面的几种方式，各有千秋，</div>
+<div class="para">第（1）中方法，由于创建新的进程的开销比较大，所以，会导致服务器性能比较差,但实现比较简单。</div>
+<div class="para">第（2）种方式，由于要涉及到线程的同步，有可能会面临<a href="http://baike.baidu.com/subview/121723/121723.htm" target="_blank" data-lemmaid="2196938">死锁</a>等问题。</div>
+<div class="para">第（3）种方式，在写应用程序代码时，逻辑比前面两种都复杂。</div>
+<div class="para">综合考虑各方面因素，一般普遍认为第（3）种方式是大多数<a href="http://baike.baidu.com/view/813.htm" target="_blank">网络服务器</a>采用的方式</div>
+<div class="para">&nbsp;</div>
+<h4 class="para">看图说话讲事件驱动模型</h4>
+<p>在UI编程中，常常要对鼠标点击进行相应，首先如何获得鼠标点击呢？<br /><strong>方式一：创建一个线程，该线程一直循环检测是否有鼠标点击，那么这个方式有以下几个缺点</strong>：<br />1. CPU资源浪费，可能鼠标点击的频率非常小，但是扫描线程还是会一直循环检测，这会造成很多的CPU资源浪费；如果扫描鼠标点击的接口是阻塞的呢？<br />2. 如果是堵塞的，又会出现下面这样的问题，如果我们不但要扫描鼠标点击，还要扫描键盘是否按下，由于扫描鼠标时被堵塞了，那么可能永远不会去扫描键盘；<br />3. 如果一个循环需要扫描的设备非常多，这又会引来响应时间的问题；<br />所以，该方式是非常不好的。<br /><br /><strong>方式二：就是事件驱动模型</strong><br />目前大部分的UI编程都是事件驱动模型，如很多UI平台都会提供onClick()事件，这个事件就代表鼠标按下事件。事件驱动模型大体思路如下：<br />1. 有一个事件（消息）队列；<br />2. 鼠标按下时，往这个队列中增加一个点击事件（消息）；<br />3. 有个循环，不断从队列取出事件，根据不同的事件，调用不同的函数，如onClick()、onKeyDown()等；<br />4. 事件（消息）一般都各自保存各自的处理函数指针，这样，每个消息都有独立的处理函数；</p>
+<p><img src="http://images2015.cnblogs.com/blog/720333/201609/720333-20160922162036496-1642863922.png" alt="" width="674" height="378" /></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<div class="para">&nbsp;</div>
+<p>事件驱动编程是一种编程范式，这里程序的执行流由外部事件来决定。它的特点是包含一个事件循环，当外部事件发生时使用回调机制来触发相应的处理。另外两种常见的编程范式是（单线程）同步以及多线程编程。</p>
+<p>让我们用例子来比较和对比一下单线程、多线程以及事件驱动编程模型。下图展示了随着时间的推移，这三种模式下程序所做的工作。这个程序有3个任务需要完成，每个任务都在等待I/O操作时阻塞自身。阻塞在I/O操作上所花费的时间已经用灰色框标示出来了。</p>
+<p>&nbsp;<img src="http://www.aosabook.org/images/twisted/threading_models.png" alt="" width="1166" height="838" /></p>
+<p>在单线程同步模型中，任务按照顺序执行。如果某个任务因为I/O而阻塞，其他所有的任务都必须等待，直到它完成之后它们才能依次执行。这种明确的执行顺序和串行化处理的行为是很容易推断得出的。如果任务之间并没有互相依赖的关系，但仍然需要互相等待的话这就使得程序不必要的降低了运行速度。</p>
+<p>在多线程版本中，这3个任务分别在独立的线程中执行。这些线程由操作系统来管理，在多处理器系统上可以并行处理，或者在单处理器系统上交错执行。这使得当某个线程阻塞在某个资源的同时其他线程得以继续执行。与完成类似功能的同步程序相比，这种方式更有效率，但程序员必须写代码来保护共享资源，防止其被多个线程同时访问。多线程程序更加难以推断，因为这类程序不得不通过线程同步机制如锁、可重入函数、线程局部存储或者其他机制来处理线程安全问题，如果实现不当就会导致出现微妙且令人痛不欲生的bug。</p>
+<p>在事件驱动版本的程序中，3个任务交错执行，但仍然在一个单独的线程控制中。当处理I/O或者其他昂贵的操作时，注册一个回调到事件循环中，然后当I/O操作完成时继续执行。回调描述了该如何处理某个事件。事件循环轮询所有的事件，当事件到来时将它们分配给等待处理事件的回调函数。这种方式让程序尽可能的得以执行而不需要用到额外的线程。事件驱动型程序比多线程程序更容易推断出行为，因为程序员不需要关心线程安全问题。</p>
+<p>当我们面对如下的环境时，事件驱动模型通常是一个好的选择：</p>
+<ol>
+<li>程序中有许多任务，而且&hellip;</li>
+<li>任务之间高度独立（因此它们不需要互相通信，或者等待彼此）而且&hellip;</li>
+<li>在等待事件到来时，某些任务会阻塞。</li>
+
+
+
+</ol>
+<p>当应用程序需要在任务间共享可变的数据时，这也是一个不错的选择，因为这里不需要采用同步处理。</p>
+<p>网络应用程序通常都有上述这些特点，这使得它们能够很好的契合事件驱动编程模型。</p>
+<p>&nbsp;</p>
+<h2><strong>Select\Poll\Epoll异步IO　</strong></h2>
+<p><strong>http://www.cnblogs.com/alex3714/p/4372426.html　</strong></p>
+<p>番外篇 http://www.cnblogs.com/alex3714/articles/5876749.html&nbsp;</p>
+<h4>select 多并发socket 例子</h4>
+<div class="cnblogs_code" onclick="cnblogs_code_show('f2d0678c-895f-42e6-8768-7b071f5889f0')"><img id="code_img_closed_f2d0678c-895f-42e6-8768-7b071f5889f0" class="code_img_closed" src="http://images.cnblogs.com/OutliningIndicators/ContractedBlock.gif" alt="" /><img id="code_img_opened_f2d0678c-895f-42e6-8768-7b071f5889f0" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('f2d0678c-895f-42e6-8768-7b071f5889f0',event)" src="http://images.cnblogs.com/OutliningIndicators/ExpandedBlockStart.gif" alt="" />
+<div id="cnblogs_code_open_f2d0678c-895f-42e6-8768-7b071f5889f0" class="cnblogs_code_hide">
+<pre><span style="color: #008000;">#</span><span style="color: #008000;">_*_coding:utf-8_*_</span>
+<span style="color: #800080;">__author__</span> = <span style="color: #800000;">'</span><span style="color: #800000;">Alex Li</span><span style="color: #800000;">'</span>
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> select
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> sys
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> queue
+
+
+server </span>=<span style="color: #000000;"> socket.socket()
+server.setblocking(0)
+
+server_addr </span>= (<span style="color: #800000;">'</span><span style="color: #800000;">localhost</span><span style="color: #800000;">'</span>,10000<span style="color: #000000;">)
+
+</span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">starting up on %s port %s</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> server_addr)
+server.bind(server_addr)
+
+server.listen(</span>5<span style="color: #000000;">)
+
+
+inputs </span>= [server, ] <span style="color: #008000;">#</span><span style="color: #008000;">自己也要监测呀,因为server本身也是个fd</span>
+outputs =<span style="color: #000000;"> []
+
+message_queues </span>=<span style="color: #000000;"> {}
+
+</span><span style="color: #0000ff;">while</span><span style="color: #000000;"> True:
+    </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">waiting for next event...</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+
+    readable, writeable, exeptional </span>= select.select(inputs,outputs,inputs) <span style="color: #008000;">#</span><span style="color: #008000;">如果没有任何fd就绪,那程序就会一直阻塞在这里</span>
+
+    <span style="color: #0000ff;">for</span> s <span style="color: #0000ff;">in</span> readable: <span style="color: #008000;">#</span><span style="color: #008000;">每个s就是一个socket</span>
+
+        <span style="color: #0000ff;">if</span> s <span style="color: #0000ff;">is</span> server: <span style="color: #008000;">#</span><span style="color: #008000;">别忘记,上面我们server自己也当做一个fd放在了inputs列表里,传给了select,如果这个s是server,代表server这个fd就绪了,</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">就是有活动了, 什么情况下它才有活动? 当然 是有新连接进来的时候 呀</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">新连接进来了,接受这个连接</span>
+            conn, client_addr =<span style="color: #000000;"> s.accept()
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">new connection from</span><span style="color: #800000;">"</span><span style="color: #000000;">,client_addr)
+            conn.setblocking(0)
+            inputs.append(conn) </span><span style="color: #008000;">#</span><span style="color: #008000;">为了不阻塞整个程序,我们不会立刻在这里开始接收客户端发来的数据, 把它放到inputs里, 下一次loop时,这个新连接</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">就会被交给select去监听,如果这个连接的客户端发来了数据 ,那这个连接的fd在server端就会变成就续的,select就会把这个连接返回,返回到</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">readable 列表里,然后你就可以loop readable列表,取出这个连接,开始接收数据了, 下面就是这么干 的</span>
+<span style="color: #000000;">
+            message_queues[conn] </span>= queue.Queue() <span style="color: #008000;">#</span><span style="color: #008000;">接收到客户端的数据后,不立刻返回 ,暂存在队列里,以后发送</span>
+
+        <span style="color: #0000ff;">else</span>: <span style="color: #008000;">#</span><span style="color: #008000;">s不是server的话,那就只能是一个 与客户端建立的连接的fd了</span>
+            <span style="color: #008000;">#</span><span style="color: #008000;">客户端的数据过来了,在这接收</span>
+            data = s.recv(1024<span style="color: #000000;">)
+            </span><span style="color: #0000ff;">if</span><span style="color: #000000;"> data:
+                </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">收到来自[%s]的数据:</span><span style="color: #800000;">"</span> %<span style="color: #000000;"> s.getpeername()[0], data)
+                message_queues[s].put(data) </span><span style="color: #008000;">#</span><span style="color: #008000;">收到的数据先放到queue里,一会返回给客户端</span>
+                <span style="color: #0000ff;">if</span> s <span style="color: #0000ff;">not</span>  <span style="color: #0000ff;">in</span><span style="color: #000000;"> outputs:
+                    outputs.append(s) </span><span style="color: #008000;">#</span><span style="color: #008000;">为了不影响处理与其它客户端的连接 , 这里不立刻返回数据给客户端</span>
+
+
+            <span style="color: #0000ff;">else</span>:<span style="color: #008000;">#</span><span style="color: #008000;">如果收不到data代表什么呢? 代表客户端断开了呀</span>
+                <span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">客户端断开了</span><span style="color: #800000;">"</span><span style="color: #000000;">,s)
+
+                </span><span style="color: #0000ff;">if</span> s <span style="color: #0000ff;">in</span><span style="color: #000000;"> outputs:
+                    outputs.remove(s) </span><span style="color: #008000;">#</span><span style="color: #008000;">清理已断开的连接</span>
+<span style="color: #000000;">
+                inputs.remove(s) </span><span style="color: #008000;">#</span><span style="color: #008000;">清理已断开的连接</span>
+
+                <span style="color: #0000ff;">del</span> message_queues[s] <span style="color: #008000;">#</span><span style="color: #008000;">#清理已断开的连接</span>
+
+
+    <span style="color: #0000ff;">for</span> s <span style="color: #0000ff;">in</span><span style="color: #000000;"> writeable:
+        </span><span style="color: #0000ff;">try</span><span style="color: #000000;"> :
+            next_msg </span>=<span style="color: #000000;"> message_queues[s].get_nowait()
+
+        </span><span style="color: #0000ff;">except</span><span style="color: #000000;"> queue.Empty:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">client [%s]</span><span style="color: #800000;">"</span> %s.getpeername()[0], <span style="color: #800000;">"</span><span style="color: #800000;">queue is empty..</span><span style="color: #800000;">"</span><span style="color: #000000;">)
+            outputs.remove(s)
+
+        </span><span style="color: #0000ff;">else</span><span style="color: #000000;">:
+            </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">sending msg to [%s]</span><span style="color: #800000;">"</span>%<span style="color: #000000;">s.getpeername()[0], next_msg)
+            s.send(next_msg.upper())
+
+
+    </span><span style="color: #0000ff;">for</span> s <span style="color: #0000ff;">in</span><span style="color: #000000;"> exeptional:
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">"</span><span style="color: #800000;">handling exception for </span><span style="color: #800000;">"</span><span style="color: #000000;">,s.getpeername())
+        inputs.remove(s)
+        </span><span style="color: #0000ff;">if</span> s <span style="color: #0000ff;">in</span><span style="color: #000000;"> outputs:
+            outputs.remove(s)
+        s.close()
+
+        </span><span style="color: #0000ff;">del</span> message_queues[s]</pre>
+</div>
+<span class="cnblogs_code_collapse">select socket server</span></div>
+<div class="cnblogs_code" onclick="cnblogs_code_show('e2e94a36-aa6f-4cd9-bb30-a0c8980ed963')"><img id="code_img_closed_e2e94a36-aa6f-4cd9-bb30-a0c8980ed963" class="code_img_closed" src="http://images.cnblogs.com/OutliningIndicators/ContractedBlock.gif" alt="" /><img id="code_img_opened_e2e94a36-aa6f-4cd9-bb30-a0c8980ed963" class="code_img_opened" style="display: none;" onclick="cnblogs_code_hide('e2e94a36-aa6f-4cd9-bb30-a0c8980ed963',event)" src="http://images.cnblogs.com/OutliningIndicators/ExpandedBlockStart.gif" alt="" />
+<div id="cnblogs_code_open_e2e94a36-aa6f-4cd9-bb30-a0c8980ed963" class="cnblogs_code_hide">
+<pre><span style="color: #008000;">#</span><span style="color: #008000;">_*_coding:utf-8_*_</span>
+<span style="color: #800080;">__author__</span> = <span style="color: #800000;">'</span><span style="color: #800000;">Alex Li</span><span style="color: #800000;">'</span>
+
+
+<span style="color: #0000ff;">import</span><span style="color: #000000;"> socket
+</span><span style="color: #0000ff;">import</span><span style="color: #000000;"> sys
+
+messages </span>= [ b<span style="color: #800000;">'</span><span style="color: #800000;">This is the message. </span><span style="color: #800000;">'</span><span style="color: #000000;">,
+             b</span><span style="color: #800000;">'</span><span style="color: #800000;">It will be sent </span><span style="color: #800000;">'</span><span style="color: #000000;">,
+             b</span><span style="color: #800000;">'</span><span style="color: #800000;">in parts.</span><span style="color: #800000;">'</span><span style="color: #000000;">,
+             ]
+server_address </span>= (<span style="color: #800000;">'</span><span style="color: #800000;">localhost</span><span style="color: #800000;">'</span>, 10000<span style="color: #000000;">)
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> Create a TCP/IP socket</span>
+socks =<span style="color: #000000;"> [ socket.socket(socket.AF_INET, socket.SOCK_STREAM),
+          socket.socket(socket.AF_INET, socket.SOCK_STREAM),
+          ]
+
+</span><span style="color: #008000;">#</span><span style="color: #008000;"> Connect the socket to the port where the server is listening</span>
+<span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">connecting to %s port %s</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> server_address)
+</span><span style="color: #0000ff;">for</span> s <span style="color: #0000ff;">in</span><span style="color: #000000;"> socks:
+    s.connect(server_address)
+
+</span><span style="color: #0000ff;">for</span> message <span style="color: #0000ff;">in</span><span style="color: #000000;"> messages:
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> Send messages on both sockets</span>
+    <span style="color: #0000ff;">for</span> s <span style="color: #0000ff;">in</span><span style="color: #000000;"> socks:
+        </span><span style="color: #0000ff;">print</span>(<span style="color: #800000;">'</span><span style="color: #800000;">%s: sending "%s"</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> (s.getsockname(), message) )
+        s.send(message)
+
+    </span><span style="color: #008000;">#</span><span style="color: #008000;"> Read responses on both sockets</span>
+    <span style="color: #0000ff;">for</span> s <span style="color: #0000ff;">in</span><span style="color: #000000;"> socks:
+        data </span>= s.recv(1024<span style="color: #000000;">)
+        </span><span style="color: #0000ff;">print</span>( <span style="color: #800000;">'</span><span style="color: #800000;">%s: received "%s"</span><span style="color: #800000;">'</span> %<span style="color: #000000;"> (s.getsockname(), data) )
+        </span><span style="color: #0000ff;">if</span> <span style="color: #0000ff;">not</span><span style="color: #000000;"> data:
+            </span><span style="color: #0000ff;">print</span>(sys.stderr, <span style="color: #800000;">'</span><span style="color: #800000;">closing socket</span><span style="color: #800000;">'</span>, s.getsockname() )</pre>
+</div>
+<span class="cnblogs_code_collapse">select socket client</span></div>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>selectors模块</p>
+<p>This module allows high-level and efficient I/O multiplexing, built upon the&nbsp;<a class="reference internal" title="select: Wait for I/O completion on multiple streams." href="https://docs.python.org/3/library/select.html#module-select"><code class="xref py py-mod docutils literal"><span class="pre">select</span></code></a>&nbsp;module primitives. Users are encouraged to use this module instead, unless they want precise control over the OS-level primitives used.</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">import selectors
+import socket
+
+sel = selectors.DefaultSelector()
+
+def accept(sock, mask):
+    conn, addr = sock.accept()  # Should be ready
+    print('accepted', conn, 'from', addr)
+    conn.setblocking(False)
+    sel.register(conn, selectors.EVENT_READ, read)
+
+def read(conn, mask):
+    data = conn.recv(1000)  # Should be ready
+    if data:
+        print('echoing', repr(data), 'to', conn)
+        conn.send(data)  # Hope it won't block
+    else:
+        print('closing', conn)
+        sel.unregister(conn)
+        conn.close()
+
+sock = socket.socket()
+sock.bind(('localhost', 10000))
+sock.listen(100)
+sock.setblocking(False)
+sel.register(sock, selectors.EVENT_READ, accept)
+
+while True:
+    events = sel.select()
+    for key, mask in events:
+        callback = key.data
+        callback(key.fileobj, mask)
+</pre>
+</div>
+<p>　　</p>
+<h2>数据库操作与Paramiko模块&nbsp;</h2>
+<p>http://www.cnblogs.com/wupeiqi/articles/5095821.html&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h2>RabbitMQ队列　　</h2>
+<p>安装&nbsp;http://www.rabbitmq.com/install-standalone-mac.html</p>
+<p>安装python rabbitMQ module&nbsp;</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">pip install pika
+or
+easy_install pika
+or
+源码
+ 
+https://pypi.python.org/pypi/pika
+</pre>
+</div>
+<p>实现最简单的队列通信</p>
+<p><img src="http://images2015.cnblogs.com/blog/720333/201609/720333-20160923111427277-763273185.png" alt="" /></p>
+<p>&nbsp;</p>
+<p>send端</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">#!/usr/bin/env python
+import pika
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+               'localhost'))
+channel = connection.channel()
+
+#声明queue
+channel.queue_declare(queue='hello')
+
+#n RabbitMQ a message can never be sent directly to the queue, it always needs to go through an exchange.
+channel.basic_publish(exchange='',
+                      routing_key='hello',
+                      body='Hello World!')
+print(" [x] Sent 'Hello World!'")
+connection.close()
+</pre>
+</div>
+<p>receive端</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">#_*_coding:utf-8_*_
+__author__ = 'Alex Li'
+import pika
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+               'localhost'))
+channel = connection.channel()
+
+
+#You may ask why we declare the queue again ‒ we have already declared it in our previous code.
+# We could avoid that if we were sure that the queue already exists. For example if send.py program
+#was run before. But we're not yet sure which program to run first. In such cases it's a good
+# practice to repeat declaring the queue in both programs.
+channel.queue_declare(queue='hello')
+
+def callback(ch, method, properties, body):
+    print(" [x] Received %r" % body)
+
+channel.basic_consume(callback,
+                      queue='hello',
+                      no_ack=True)
+
+print(' [*] Waiting for messages. To exit press CTRL+C')
+channel.start_consuming()
+</pre>
+</div>
+<p>　　</p>
+<h3>Work Queues</h3>
+<p><img src="http://www.rabbitmq.com/img/tutorials/python-two.png" alt="" width="332" height="111" /></p>
+<p>在这种模式下，RabbitMQ会默认把p发的消息依次分发给各个消费者(c),跟负载均衡差不多</p>
+<p>消息提供者代码</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">import pika
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+               'localhost'))
+channel = connection.channel()
+
+#声明queue
+channel.queue_declare(queue='task_queue')
+
+#n RabbitMQ a message can never be sent directly to the queue, it always needs to go through an exchange.
+import sys
+
+message = ' '.join(sys.argv[1:]) or "Hello World!"
+channel.basic_publish(exchange='',
+                      routing_key='task_queue',
+                      body=message,
+                      properties=pika.BasicProperties(
+                      delivery_mode = 2, # make message persistent
+                      ))
+print(" [x] Sent %r" % message)
+connection.close()
+</pre>
+</div>
+<p>消费者代码</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">import pika,time
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+               'localhost'))
+channel = connection.channel()
+
+
+
+def callback(ch, method, properties, body):
+    print(" [x] Received %r" % body)
+    time.sleep(body.count(b'.'))
+    print(" [x] Done")
+    ch.basic_ack(delivery_tag = method.delivery_tag)
+
+
+channel.basic_consume(callback,
+                      queue='task_queue',
+                      )
+
+print(' [*] Waiting for messages. To exit press CTRL+C')
+channel.start_consuming()
+</pre>
+</div>
+<p>此时，先启动消息生产者，然后再分别启动3个消费者，通过生产者多发送几条消息，你会发现，这几条消息会被依次分配到各个消费者身上　　</p>
+<p>Doing a task can take a few seconds. You may wonder what happens if one of the consumers starts a long task and dies with it only partly done. With our current code once RabbitMQ delivers message to the customer it immediately removes it from memory. In this case, if you kill a worker we will lose the message it was just processing. We'll also lose all the messages that were dispatched to this particular worker but were not yet handled.</p>
+<p>But we don't want to lose any tasks. If a worker dies, we'd like the task to be delivered to another worker.</p>
+<p>In order to make sure a message is never lost, RabbitMQ supports message&nbsp;<em>acknowledgments</em>. An ack(nowledgement) is sent back from the consumer to tell RabbitMQ that a particular message had been received, processed and that RabbitMQ is free to delete it.</p>
+<p>If a consumer dies (its channel is closed, connection is closed, or TCP connection is lost) without sending an ack, RabbitMQ will understand that a message wasn't processed fully and will re-queue it. If there are other consumers online at the same time, it will then quickly redeliver it to another consumer. That way you can be sure that no message is lost, even if the workers occasionally die.</p>
+<p>There aren't any message timeouts; RabbitMQ will redeliver the message when the consumer dies. It's fine even if processing a message takes a very, very long time.</p>
+<p>Message acknowledgments are turned on by default. In previous examples we explicitly turned them off via the&nbsp;<span class="code ">no_ack=True&nbsp;flag. It's time to remove this flag and send a proper acknowledgment from the worker, once we're done with a task.</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">def callback(ch, method, properties, body):
+    print " [x] Received %r" % (body,)
+    time.sleep( body.count('.') )
+    print " [x] Done"
+    ch.basic_ack(delivery_tag = method.delivery_tag)
+
+channel.basic_consume(callback,
+                      queue='hello')
+</pre>
+</div>
+<p>　　Using this code we can be sure that even if you kill a worker using CTRL+C while it was processing a message, nothing will be lost. Soon after the worker dies all unacknowledged messages will be redelivered</p>
+<p>　　　　</p>
+<h3>消息持久化　　</h3>
+<p>We have learned how to make sure that even if the consumer dies, the task isn't lost(by default, if wanna disable &nbsp;use no_ack=True). But our tasks will still be lost if RabbitMQ server stops.</p>
+<p>When RabbitMQ quits or crashes it will forget the queues and messages unless you tell it not to. Two things are required to make sure that messages aren't lost: we need to mark both the queue and messages as durable.</p>
+<p>First, we need to make sure that RabbitMQ will never lose our queue. In order to do so, we need to declare it as&nbsp;<em>durable</em>:</p>
+<div class="highlight">
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">channel.queue_declare(queue='hello', durable=True)
+</pre>
+</div>
+<p>　　</p>
+</div>
+<p>Although this command is correct by itself, it won't work in our setup. That's because we've already defined a queue called&nbsp;<span class="code ">hello&nbsp;which is not durable. RabbitMQ doesn't allow you to redefine an existing queue with different parameters and will return an error to any program that tries to do that. But there is a quick workaround - let's declare a queue with different name, for example<span class="code ">task_queue:</span></span></p>
+<div class="highlight">
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">channel.queue_declare(queue='task_queue', durable=True)
+</pre>
+</div>
+<p>　　</p>
+</div>
+<p>This&nbsp;<span class="code ">queue_declare&nbsp;change needs to be applied to both the producer and consumer code.</span></p>
+<p>At that point we're sure that the&nbsp;<span class="code ">task_queue&nbsp;queue won't be lost even if RabbitMQ restarts. Now we need to mark our messages as persistent - by supplying a&nbsp;<span class="code ">delivery_mode&nbsp;property with a value&nbsp;<span class="code ">2.</span></span></span></p>
+<div class="highlight">
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">channel.basic_publish(exchange='',
+                      routing_key="task_queue",
+                      body=message,
+                      properties=pika.BasicProperties(
+                         delivery_mode = 2, # make message persistent
+                      ))
+</pre>
+</div>
+<h3>消息公平分发</h3>
+<p>如果Rabbit只管按顺序把消息发到各个消费者身上，不考虑消费者负载的话，很可能出现，一个机器配置不高的消费者那里堆积了很多消息处理不完，同时配置高的消费者却一直很轻松。为解决此问题，可以在各个消费者端，配置perfetch=1,意思就是告诉RabbitMQ在我这个消费者当前消息还没处理完的时候就不要再给我发新消息了。</p>
+<p><img src="http://www.rabbitmq.com/img/tutorials/prefetch-count.png" alt="" width="396" height="111" /></p>
+<p>&nbsp;</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">channel.basic_qos(prefetch_count=1)
+</pre>
+</div>
+<p>&nbsp;</p>
+<p><strong>带消息持久化+公平分发的完整代码</strong></p>
+<p>生产者端</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">#!/usr/bin/env python
+import pika
+import sys
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
+channel = connection.channel()
+
+channel.queue_declare(queue='task_queue', durable=True)
+
+message = ' '.join(sys.argv[1:]) or "Hello World!"
+channel.basic_publish(exchange='',
+                      routing_key='task_queue',
+                      body=message,
+                      properties=pika.BasicProperties(
+                         delivery_mode = 2, # make message persistent
+                      ))
+print(" [x] Sent %r" % message)
+connection.close()
+</pre>
+</div>
+<p>消费者端</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">#!/usr/bin/env python
+import pika
+import time
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
+channel = connection.channel()
+
+channel.queue_declare(queue='task_queue', durable=True)
+print(' [*] Waiting for messages. To exit press CTRL+C')
+
+def callback(ch, method, properties, body):
+    print(" [x] Received %r" % body)
+    time.sleep(body.count(b'.'))
+    print(" [x] Done")
+    ch.basic_ack(delivery_tag = method.delivery_tag)
+
+channel.basic_qos(prefetch_count=1)
+channel.basic_consume(callback,
+                      queue='task_queue')
+
+channel.start_consuming()
+</pre>
+</div>
+<p>　　</p>
+<h3>Publish\Subscribe(消息发布\订阅)　</h3>
+<p>之前的例子都基本都是1对1的消息发送和接收，即消息只能发送到指定的queue里，但有些时候你想让你的消息被所有的Queue收到，类似广播的效果，这时候就要用到exchange了，</p>
+<p>An exchange is a very simple thing. On one side it receives messages from producers and the other side it pushes them to queues. The exchange must know exactly what to do with a message it receives. Should it be appended to a particular queue? Should it be appended to many queues? Or should it get discarded. The rules for that are defined by the&nbsp;<em>exchange type.</em></p>
+<p>Exchange在定义的时候是有类型的，以决定到底是哪些Queue符合条件，可以接收消息</p>
+<p><br />fanout:&nbsp;所有bind到此exchange的queue都可以接收消息<br />direct:&nbsp;通过routingKey和exchange决定的那个唯一的queue可以接收消息<br />topic:所有符合routingKey(此时可以是一个表达式)的routingKey所bind的queue可以接收消息<br /><br />　　&nbsp;<em id="__mceDel">表达式符号说明：#代表一个或多个字符，*代表任何字符<br />&nbsp; &nbsp; &nbsp; 例：#.a会匹配a.a，aa.a，aaa.a等<br />&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; *.a会匹配a.a，b.a，c.a等<br />&nbsp; &nbsp; &nbsp;注：使用RoutingKey为#，Exchange Type为topic的时候相当于使用fanout　</em></p>
+<p>headers: 通过headers 来决定把消息发给哪些queue</p>
+<p><img src="http://www.rabbitmq.com/img/tutorials/python-three-overall.png" alt="" width="329" height="160" /></p>
+<p>消息publisher</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">import pika
+import sys
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
+channel = connection.channel()
+
+channel.exchange_declare(exchange='logs',
+                         type='fanout')
+
+message = ' '.join(sys.argv[1:]) or "info: Hello World!"
+channel.basic_publish(exchange='logs',
+                      routing_key='',
+                      body=message)
+print(" [x] Sent %r" % message)
+connection.close()
+</pre>
+</div>
+<p>消息subscriber</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">#_*_coding:utf-8_*_
+__author__ = 'Alex Li'
+import pika
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
+channel = connection.channel()
+
+channel.exchange_declare(exchange='logs',
+                         type='fanout')
+
+result = channel.queue_declare(exclusive=True) #不指定queue名字,rabbit会随机分配一个名字,exclusive=True会在使用此queue的消费者断开后,自动将queue删除
+queue_name = result.method.queue
+
+channel.queue_bind(exchange='logs',
+                   queue=queue_name)
+
+print(' [*] Waiting for logs. To exit press CTRL+C')
+
+def callback(ch, method, properties, body):
+    print(" [x] %r" % body)
+
+channel.basic_consume(callback,
+                      queue=queue_name,
+                      no_ack=True)
+
+channel.start_consuming()
+</pre>
+</div>
+<p>　　</p>
+<h3>有选择的接收消息(exchange type=direct)　</h3>
+<p>RabbitMQ还支持根据关键字发送，即：队列绑定关键字，发送者将数据根据关键字发送到消息exchange，exchange根据 关键字 判定应该将数据发送至指定队列。</p>
+<h3><img src="http://www.rabbitmq.com/img/tutorials/python-four.png" alt="" width="423" height="171" /></h3>
+<h3>publisher</h3>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">import pika
+import sys
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
+channel = connection.channel()
+
+channel.exchange_declare(exchange='direct_logs',
+                         type='direct')
+
+severity = sys.argv[1] if len(sys.argv) &gt; 1 else 'info'
+message = ' '.join(sys.argv[2:]) or 'Hello World!'
+channel.basic_publish(exchange='direct_logs',
+                      routing_key=severity,
+                      body=message)
+print(" [x] Sent %r:%r" % (severity, message))
+connection.close()
+</pre>
+</div>
+<h3>subscriber　</h3>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">import pika
+import sys
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
+channel = connection.channel()
+
+channel.exchange_declare(exchange='direct_logs',
+                         type='direct')
+
+result = channel.queue_declare(exclusive=True)
+queue_name = result.method.queue
+
+severities = sys.argv[1:]
+if not severities:
+    sys.stderr.write("Usage: %s [info] [warning] [error]\n" % sys.argv[0])
+    sys.exit(1)
+
+for severity in severities:
+    channel.queue_bind(exchange='direct_logs',
+                       queue=queue_name,
+                       routing_key=severity)
+
+print(' [*] Waiting for logs. To exit press CTRL+C')
+
+def callback(ch, method, properties, body):
+    print(" [x] %r:%r" % (method.routing_key, body))
+
+channel.basic_consume(callback,
+                      queue=queue_name,
+                      no_ack=True)
+
+channel.start_consuming()
+</pre>
+</div>
+<p>　　</p>
+<h3>更细致的消息过滤</h3>
+<p>Although using the&nbsp;<span class="code ">direct&nbsp;exchange improved our system, it still has limitations - it can't do routing based on multiple criteria.</span></p>
+<p>In our logging system we might want to subscribe to not only logs based on severity, but also based on the source which emitted the log. You might know this concept from the&nbsp;<a href="http://en.wikipedia.org/wiki/Syslog"><span class="code ">syslog</span></a>&nbsp;unix tool, which routes logs based on both severity (info/warn/crit...) and facility (auth/cron/kern...).</p>
+<p>That would give us a lot of flexibility - we may want to listen to just critical errors coming from 'cron' but also all logs from 'kern'.</p>
+<p><img src="http://www.rabbitmq.com/img/tutorials/python-five.png" alt="" width="424" height="171" /></p>
+<p>publisher</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">import pika
+import sys
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
+channel = connection.channel()
+
+channel.exchange_declare(exchange='topic_logs',
+                         type='topic')
+
+routing_key = sys.argv[1] if len(sys.argv) &gt; 1 else 'anonymous.info'
+message = ' '.join(sys.argv[2:]) or 'Hello World!'
+channel.basic_publish(exchange='topic_logs',
+                      routing_key=routing_key,
+                      body=message)
+print(" [x] Sent %r:%r" % (routing_key, message))
+connection.close()
+</pre>
+</div>
+<p>subscriber</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">import pika
+import sys
+
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
+channel = connection.channel()
+
+channel.exchange_declare(exchange='topic_logs',
+                         type='topic')
+
+result = channel.queue_declare(exclusive=True)
+queue_name = result.method.queue
+
+binding_keys = sys.argv[1:]
+if not binding_keys:
+    sys.stderr.write("Usage: %s [binding_key]...\n" % sys.argv[0])
+    sys.exit(1)
+
+for binding_key in binding_keys:
+    channel.queue_bind(exchange='topic_logs',
+                       queue=queue_name,
+                       routing_key=binding_key)
+
+print(' [*] Waiting for logs. To exit press CTRL+C')
+
+def callback(ch, method, properties, body):
+    print(" [x] %r:%r" % (method.routing_key, body))
+
+channel.basic_consume(callback,
+                      queue=queue_name,
+                      no_ack=True)
+
+channel.start_consuming()
+</pre>
+</div>
+<p>To receive all the logs run:</p>
+<div class="highlight">
+<pre>python receive_logs_topic.py <span class="s2">"#"
+</span></pre>
+</div>
+<p>To receive all logs from the facility "<span class="code ">kern":</span></p>
+<div class="highlight">
+<pre>python receive_logs_topic.py <span class="s2">"kern.*"
+</span></pre>
+</div>
+<p>Or if you want to hear only about "<span class="code ">critical" logs:</span></p>
+<div class="highlight">
+<pre>python receive_logs_topic.py <span class="s2">"*.critical"
+</span></pre>
+</div>
+<p>You can create multiple bindings:</p>
+<div class="highlight">
+<pre>python receive_logs_topic.py <span class="s2">"kern.*" <span class="s2">"*.critical"
+</span></span></pre>
+</div>
+<p>And to emit a log with a routing key "<span class="code ">kern.critical" type:</span></p>
+<div class="highlight">
+<pre>python emit_log_topic.py <span class="s2">"kern.critical" <span class="s2">"A critical kernel error"</span></span></pre>
+</div>
+<p>　　</p>
+<h2>Remote procedure call (RPC)</h2>
+<p>To illustrate how an RPC service could be used we're going to create a simple client class. It's going to expose a method named&nbsp;<span class="code ">call&nbsp;which sends an RPC request and blocks until the answer is received:</span></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">fibonacci_rpc = FibonacciRpcClient()
+result = fibonacci_rpc.call(4)
+print("fib(4) is %r" % result)
+</pre>
+</div>
+<p><img src="http://www.rabbitmq.com/img/tutorials/python-six.png" alt="" width="576" height="200" /></p>
+<p>RPC server</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">#_*_coding:utf-8_*_
+__author__ = 'Alex Li'
+import pika
+import time
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+        host='localhost'))
+
+channel = connection.channel()
+
+channel.queue_declare(queue='rpc_queue')
+
+def fib(n):
+    if n == 0:
+        return 0
+    elif n == 1:
+        return 1
+    else:
+        return fib(n-1) + fib(n-2)
+
+def on_request(ch, method, props, body):
+    n = int(body)
+
+    print(" [.] fib(%s)" % n)
+    response = fib(n)
+
+    ch.basic_publish(exchange='',
+                     routing_key=props.reply_to,
+                     properties=pika.BasicProperties(correlation_id = \
+                                                         props.correlation_id),
+                     body=str(response))
+    ch.basic_ack(delivery_tag = method.delivery_tag)
+
+channel.basic_qos(prefetch_count=1)
+channel.basic_consume(on_request, queue='rpc_queue')
+
+print(" [x] Awaiting RPC requests")
+channel.start_consuming()
+</pre>
+</div>
+<p>RPC client</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">import pika
+import uuid
+
+class FibonacciRpcClient(object):
+    def __init__(self):
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(
+                host='localhost'))
+
+        self.channel = self.connection.channel()
+
+        result = self.channel.queue_declare(exclusive=True)
+        self.callback_queue = result.method.queue
+
+        self.channel.basic_consume(self.on_response, no_ack=True,
+                                   queue=self.callback_queue)
+
+    def on_response(self, ch, method, props, body):
+        if self.corr_id == props.correlation_id:
+            self.response = body
+
+    def call(self, n):
+        self.response = None
+        self.corr_id = str(uuid.uuid4())
+        self.channel.basic_publish(exchange='',
+                                   routing_key='rpc_queue',
+                                   properties=pika.BasicProperties(
+                                         reply_to = self.callback_queue,
+                                         correlation_id = self.corr_id,
+                                         ),
+                                   body=str(n))
+        while self.response is None:
+            self.connection.process_data_events()
+        return int(self.response)
+
+fibonacci_rpc = FibonacciRpcClient()
+
+print(" [x] Requesting fib(30)")
+response = fibonacci_rpc.call(30)
+print(" [.] Got %r" % response)
+</pre>
+</div>
+<p>　　</p>
+<p>　　</p>
+<h3>Memcached &amp; Redis使用　</h3>
+<p>http://www.cnblogs.com/wupeiqi/articles/5132791.html&nbsp;　</p>
+<p>　　</p>
+<h3>　</h3>
+<h3>Twsited异步网络框架</h3>
+<p>Twisted是一个事件驱动的网络框架，其中包含了诸多功能，例如：网络协议、线程、数据库管理、网络操作、电子邮件等。　</p>
+<p><img src="http://images2015.cnblogs.com/blog/425762/201512/425762-20151227041644859-201636592.png" alt="" width="1932" height="1246" /></p>
+<p><strong>事件驱动</strong></p>
+<p>简而言之，事件驱动分为二个部分：第一，注册事件；第二，触发事件。</p>
+<p>自定义事件驱动框架，命名为：&ldquo;弑君者&rdquo;：</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+
+# event_drive.py
+
+event_list = []
+
+
+def run():
+    for event in event_list:
+        obj = event()
+        obj.execute()
+
+
+class BaseHandler(object):
+    """
+    用户必须继承该类，从而规范所有类的方法（类似于接口的功能）
+    """
+    def execute(self):
+        raise Exception('you must overwrite execute')
+
+最牛逼的事件驱动框架
+</pre>
+</div>
+<p>程序员使用&ldquo;弑君者框架&rdquo;：　　</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+
+from source import event_drive
+
+
+class MyHandler(event_drive.BaseHandler):
+
+    def execute(self):
+        print 'event-drive execute MyHandler'
+
+
+event_drive.event_list.append(MyHandler)
+event_drive.run()
+</pre>
+</div>
+<p>&nbsp;</p>
+<h4><strong>Protocols</strong></h4>
+<p>Protocols描述了如何以异步的方式处理网络中的事件。HTTP、DNS以及IMAP是应用层协议中的例子。Protocols实现了IProtocol接口，它包含如下的方法：</p>
+<pre name="code" class="prettyprint"><code><span class="pln">makeConnection               <span class="pun">在<span class="pln">transport<span class="pun">对象和服务器之间建立一条连接<span class="pln">
+connectionMade               <span class="pun">连接建立起来后调用<span class="pln">
+dataReceived                 <span class="pun">接收数据时调用<span class="pln">
+connectionLost               <span class="pun">关闭连接时调用</span></span></span></span></span></span></span></span></span></span></code></pre>
+<h4><strong>Transports</strong></h4>
+<p>Transports代表网络中两个通信结点之间的连接。Transports负责描述连接的细节，比如连接是面向流式的还是面向数据报的，流控以及可靠性。TCP、UDP和Unix套接字可作为transports的例子。它们被设计为&ldquo;满足最小功能单元，同时具有最大程度的可复用性&rdquo;，而且从协议实现中分离出来，这让许多协议可以采用相同类型的传输。Transports实现了ITransports接口，它包含如下的方法：</p>
+<pre name="code" class="prettyprint"><code><span class="pln">write                   <span class="pun">以非阻塞的方式按顺序依次将数据写到物理连接上<span class="pln">
+writeSequence           <span class="pun">将一个字符串列表写到物理连接上<span class="pln">
+loseConnection          <span class="pun">将所有挂起的数据写入，然后关闭连接<span class="pln">
+getPeer                 <span class="pun">取得连接中对端的地址信息<span class="pln">
+getHost                 <span class="pun">取得连接中本端的地址信息</span></span></span></span></span></span></span></span></span></span></code></pre>
+<p>将transports从协议中分离出来也使得对这两个层次的测试变得更加简单。可以通过简单地写入一个字符串来模拟传输，用这种方式来检查。</p>
+<p>　　</p>
+<p>&nbsp;</p>
+<p>EchoServer</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">from twisted.internet import protocol
+from twisted.internet import reactor
+
+class Echo(protocol.Protocol):
+    def dataReceived(self, data):
+        self.transport.write(data)
+
+def main():
+    factory = protocol.ServerFactory()
+    factory.protocol = Echo
+
+    reactor.listenTCP(1234,factory)
+    reactor.run()
+
+if __name__ == '__main__':
+    main()
+</pre>
+</div>
+<p>　　</p>
+<p>EchoClient</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">from twisted.internet import reactor, protocol
+
+
+# a client protocol
+
+class EchoClient(protocol.Protocol):
+    """Once connected, send a message, then print the result."""
+
+    def connectionMade(self):
+        self.transport.write("hello alex!")
+
+    def dataReceived(self, data):
+        "As soon as any data is received, write it back."
+        print "Server said:", data
+        self.transport.loseConnection()
+
+    def connectionLost(self, reason):
+        print "connection lost"
+
+class EchoFactory(protocol.ClientFactory):
+    protocol = EchoClient
+
+    def clientConnectionFailed(self, connector, reason):
+        print "Connection failed - goodbye!"
+        reactor.stop()
+
+    def clientConnectionLost(self, connector, reason):
+        print "Connection lost - goodbye!"
+        reactor.stop()
+
+
+# this connects the protocol to a server running on port 8000
+def main():
+    f = EchoFactory()
+    reactor.connectTCP("localhost", 1234, f)
+    reactor.run()
+
+# this only runs if the module was *not* imported
+if __name__ == '__main__':
+    main()
+</pre>
+</div>
+<p>运行服务器端脚本将启动一个TCP服务器，监听端口1234上的连接。服务器采用的是Echo协议，数据经TCP transport对象写出。运行客户端脚本将对服务器发起一个TCP连接，回显服务器端的回应然后终止连接并停止reactor事件循环。这里的Factory用来对连接的双方生成protocol对象实例。两端的通信是异步的，connectTCP负责注册回调函数到reactor事件循环中，当socket上有数据可读时通知回调处理。</p>
+<h3><strong>一个传送文件的例子&nbsp;</strong></h3>
+<p><strong>server side&nbsp;</strong></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">#_*_coding:utf-8_*_
+# This is the Twisted Fast Poetry Server, version 1.0
+
+import optparse, os
+
+from twisted.internet.protocol import ServerFactory, Protocol
+
+
+def parse_args():
+    usage = """usage: %prog [options] poetry-file
+
+This is the Fast Poetry Server, Twisted edition.
+Run it like this:
+
+  python fastpoetry.py &lt;path-to-poetry-file&gt;
+
+If you are in the base directory of the twisted-intro package,
+you could run it like this:
+
+  python twisted-server-1/fastpoetry.py poetry/ecstasy.txt
+
+to serve up John Donne's Ecstasy, which I know you want to do.
+"""
+
+    parser = optparse.OptionParser(usage)
+
+    help = "The port to listen on. Default to a random available port."
+    parser.add_option('--port', type='int', help=help)
+
+    help = "The interface to listen on. Default is localhost."
+    parser.add_option('--iface', help=help, default='localhost')
+
+    options, args = parser.parse_args()
+    print("--arg:",options,args)
+
+    if len(args) != 1:
+        parser.error('Provide exactly one poetry file.')
+
+    poetry_file = args[0]
+
+    if not os.path.exists(args[0]):
+        parser.error('No such file: %s' % poetry_file)
+
+    return options, poetry_file
+
+
+class PoetryProtocol(Protocol):
+
+    def connectionMade(self):
+        self.transport.write(self.factory.poem)
+        self.transport.loseConnection()
+
+
+class PoetryFactory(ServerFactory):
+
+    protocol = PoetryProtocol
+
+    def __init__(self, poem):
+        self.poem = poem
+
+
+def main():
+    options, poetry_file = parse_args()
+
+    poem = open(poetry_file).read()
+
+    factory = PoetryFactory(poem)
+
+    from twisted.internet import reactor
+
+    port = reactor.listenTCP(options.port or 9000, factory,
+                             interface=options.iface)
+
+    print 'Serving %s on %s.' % (poetry_file, port.getHost())
+
+    reactor.run()
+
+
+if __name__ == '__main__':
+    main()
+</pre>
+</div>
+<p><strong>client side 　　</strong></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;"># This is the Twisted Get Poetry Now! client, version 3.0.
+
+# NOTE: This should not be used as the basis for production code.
+
+import optparse
+
+from twisted.internet.protocol import Protocol, ClientFactory
+
+
+def parse_args():
+    usage = """usage: %prog [options] [hostname]:port ...
+
+This is the Get Poetry Now! client, Twisted version 3.0
+Run it like this:
+
+  python get-poetry-1.py port1 port2 port3 ...
+"""
+
+    parser = optparse.OptionParser(usage)
+
+    _, addresses = parser.parse_args()
+
+    if not addresses:
+        print parser.format_help()
+        parser.exit()
+
+    def parse_address(addr):
+        if ':' not in addr:
+            host = '127.0.0.1'
+            port = addr
+        else:
+            host, port = addr.split(':', 1)
+
+        if not port.isdigit():
+            parser.error('Ports must be integers.')
+
+        return host, int(port)
+
+    return map(parse_address, addresses)
+
+
+class PoetryProtocol(Protocol):
+
+    poem = ''
+
+    def dataReceived(self, data):
+        self.poem += data
+
+    def connectionLost(self, reason):
+        self.poemReceived(self.poem)
+
+    def poemReceived(self, poem):
+        self.factory.poem_finished(poem)
+
+
+class PoetryClientFactory(ClientFactory):
+
+    protocol = PoetryProtocol
+
+    def __init__(self, callback):
+        self.callback = callback
+
+    def poem_finished(self, poem):
+        self.callback(poem)
+
+
+def get_poetry(host, port, callback):
+    """
+    Download a poem from the given host and port and invoke
+
+      callback(poem)
+
+    when the poem is complete.
+    """
+    from twisted.internet import reactor
+    factory = PoetryClientFactory(callback)
+    reactor.connectTCP(host, port, factory)
+
+
+def poetry_main():
+    addresses = parse_args()
+
+    from twisted.internet import reactor
+
+    poems = []
+
+    def got_poem(poem):
+        poems.append(poem)
+        if len(poems) == len(addresses):
+            reactor.stop()
+
+    for address in addresses:
+        host, port = address
+        get_poetry(host, port, got_poem)
+
+    reactor.run()
+
+    for poem in poems:
+        print poem
+
+
+if __name__ == '__main__':
+    poetry_main()
+</pre>
+</div>
+<p>　　</p>
+<p>　　</p>
+<h3>Twisted深入</h3>
+<p>http://krondo.com/an-introduction-to-asynchronous-programming-and-twisted/&nbsp;</p>
+<p>http://blog.csdn.net/hanhuili/article/details/9389433&nbsp;</p>
+<p>　　</p>
+<p>　　</p>
+<h2>SqlAlchemy ORM　　</h2>
+<p>SQLAlchemy是<a href="http://baike.baidu.com/subview/21087/21087.htm" target="_blank">Python</a>编程语言下的一款ORM框架，该框架建立在数据库API之上，使用关系对象映射进行数据库操作，简言之便是：将对象转换成SQL，然后使用数据API执行SQL并获取执行结果</p>
+<p><img src="http://images2015.cnblogs.com/blog/425762/201601/425762-20160117042127803-263417768.png" alt="" width="940" height="658" /></p>
+<p>Dialect用于和数据API进行交流，根据配置文件的不同调用不同的数据库API，从而实现对数据库的操作，如：</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">MySQL-Python
+    mysql+mysqldb://&lt;user&gt;:&lt;password&gt;@&lt;host&gt;[:&lt;port&gt;]/&lt;dbname&gt;
+ 
+pymysql
+    mysql+pymysql://&lt;username&gt;:&lt;password&gt;@&lt;host&gt;/&lt;dbname&gt;[?&lt;options&gt;]
+ 
+MySQL-Connector
+    mysql+mysqlconnector://&lt;user&gt;:&lt;password&gt;@&lt;host&gt;[:&lt;port&gt;]/&lt;dbname&gt;
+ 
+cx_Oracle
+    oracle+cx_oracle://user:pass@host:port/dbname[?key=value&amp;key=value...]
+ 
+更多详见：http://docs.sqlalchemy.org/en/latest/dialects/index.html
+</pre>
+</div>
+<p>　　</p>
+<p>步骤一：</p>
+<p>使用 Engine/ConnectionPooling/Dialect 进行数据库操作，Engine使用ConnectionPooling连接数据库，然后再通过Dialect执行SQL语句。</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+ 
+from sqlalchemy import create_engine
+ 
+ 
+engine = create_engine("mysql+mysqldb://root:123@127.0.0.1:3306/s11", max_overflow=5)
+ 
+engine.execute(
+    "INSERT INTO ts_test (a, b) VALUES ('2', 'v1')"
+)
+ 
+engine.execute(
+     "INSERT INTO ts_test (a, b) VALUES (%s, %s)",
+    ((555, "v1"),(666, "v1"),)
+)
+engine.execute(
+    "INSERT INTO ts_test (a, b) VALUES (%(id)s, %(name)s)",
+    id=999, name="v1"
+)
+ 
+result = engine.execute('select * from ts_test')
+result.fetchall()
+</pre>
+</div>
+<p>　　</p>
+<p>步骤二：</p>
+<p>使用 Schema Type/SQL Expression Language/Engine/ConnectionPooling/Dialect 进行数据库操作。Engine使用Schema Type创建一个特定的结构对象，之后通过SQL Expression Language将该对象转换成SQL语句，然后通过&nbsp;ConnectionPooling 连接数据库，再然后通过&nbsp;Dialect 执行SQL，并获取结果。</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+
+from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData, ForeignKey
+
+metadata = MetaData()
+
+user = Table('user', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String(20)),
+)
+
+color = Table('color', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String(20)),
+)
+engine = create_engine("mysql+mysqldb://root@localhost:3306/test", max_overflow=5)
+
+metadata.create_all(engine)
+</pre>
+</div>
+<p>增删改查</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;collapse:true;;gutter:true;">#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+
+from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData, ForeignKey
+
+metadata = MetaData()
+
+user = Table('user', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String(20)),
+)
+
+color = Table('color', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('name', String(20)),
+)
+engine = create_engine("mysql+mysqldb://root:123@127.0.0.1:3306/s11", max_overflow=5)
+
+conn = engine.connect()
+
+# 创建SQL语句，INSERT INTO "user" (id, name) VALUES (:id, :name)
+conn.execute(user.insert(),{'id':7,'name':'seven'})
+conn.close()
+
+# sql = user.insert().values(id=123, name='wu')
+# conn.execute(sql)
+# conn.close()
+
+# sql = user.delete().where(user.c.id &gt; 1)
+
+# sql = user.update().values(fullname=user.c.name)
+# sql = user.update().where(user.c.name == 'jack').values(name='ed')
+
+# sql = select([user, ])
+# sql = select([user.c.id, ])
+# sql = select([user.c.name, color.c.name]).where(user.c.id==color.c.id)
+# sql = select([user.c.name]).order_by(user.c.name)
+# sql = select([user]).group_by(user.c.name)
+
+# result = conn.execute(sql)
+# print result.fetchall()
+# conn.close()
+</pre>
+</div>
+<p>&nbsp;</p>
+<p><strong>一个简单的完整例子</strong></p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String
+from  sqlalchemy.orm import sessionmaker
+
+Base = declarative_base() #生成一个SqlORM 基类
+
+
+engine = create_engine("mysql+mysqldb://root@localhost:3306/test",echo=False)
+
+
+class Host(Base):
+    __tablename__ = 'hosts'
+    id = Column(Integer,primary_key=True,autoincrement=True)
+    hostname = Column(String(64),unique=True,nullable=False)
+    ip_addr = Column(String(128),unique=True,nullable=False)
+    port = Column(Integer,default=22)
+
+Base.metadata.create_all(engine) #创建所有表结构
+
+if __name__ == '__main__':
+    SessionCls = sessionmaker(bind=engine) #创建与数据库的会话session class ,注意,这里返回给session的是个class,不是实例
+    session = SessionCls()
+    #h1 = Host(hostname='localhost',ip_addr='127.0.0.1')
+    #h2 = Host(hostname='ubuntu',ip_addr='192.168.2.243',port=20000)
+    #h3 = Host(hostname='ubuntu2',ip_addr='192.168.2.244',port=20000)
+    #session.add(h3)
+    #session.add_all( [h1,h2])
+    #h2.hostname = 'ubuntu_test' #只要没提交,此时修改也没问题
+    #session.rollback()
+    #session.commit() #提交
+    res = session.query(Host).filter(Host.hostname.in_(['ubuntu2','localhost'])).all()
+    print(res)
+</pre>
+</div>
+<p>　　</p>
+<p>&nbsp;</p>
+<p>更多内容详见：</p>
+<p>&nbsp; &nbsp;&nbsp;http://www.jianshu.com/p/e6bba189fcbd</p>
+<p>&nbsp; &nbsp; http://docs.sqlalchemy.org/en/latest/core/expression_api.html</p>
+<p>注：SQLAlchemy无法修改表结构，如果需要可以使用SQLAlchemy开发者开源的另外一个软件Alembic来完成。</p>
+<p>步骤三：</p>
+<p>使用 ORM/Schema Type/SQL Expression Language/Engine/ConnectionPooling/Dialect 所有组件对数据进行操作。根据类创建对象，对象转换成SQL，执行SQL。</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+ 
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
+ 
+engine = create_engine("mysql+mysqldb://root:123@127.0.0.1:3306/s11", max_overflow=5)
+ 
+Base = declarative_base()
+ 
+ 
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50))
+ 
+# 寻找Base的所有子类，按照子类的结构在数据库中生成对应的数据表信息
+# Base.metadata.create_all(engine)
+ 
+Session = sessionmaker(bind=engine)
+session = Session()
+ 
+ 
+# ########## 增 ##########
+# u = User(id=2, name='sb')
+# session.add(u)
+# session.add_all([
+#     User(id=3, name='sb'),
+#     User(id=4, name='sb')
+# ])
+# session.commit()
+ 
+# ########## 删除 ##########
+# session.query(User).filter(User.id &gt; 2).delete()
+# session.commit()
+ 
+# ########## 修改 ##########
+# session.query(User).filter(User.id &gt; 2).update({'cluster_id' : 0})
+# session.commit()
+# ########## 查 ##########
+# ret = session.query(User).filter_by(name='sb').first()
+ 
+# ret = session.query(User).filter_by(name='sb').all()
+# print ret
+ 
+# ret = session.query(User).filter(User.name.in_(['sb','bb'])).all()
+# print ret
+ 
+# ret = session.query(User.name.label('name_label')).all()
+# print ret,type(ret)
+ 
+# ret = session.query(User).order_by(User.id).all()
+# print ret
+ 
+# ret = session.query(User).order_by(User.id)[1:3]
+# print ret
+# session.commit()
+</pre>
+</div>
+<h3>外键关联</h3>
+<p>A one to many relationship places a foreign key on the child table referencing the parent.<a class="reference internal" title="sqlalchemy.orm.relationship" href="http://docs.sqlalchemy.org/en/rel_1_0/orm/relationship_api.html#sqlalchemy.orm.relationship"><code class="xref py py-func docutils literal"><span class="pre">relationship()</span></code></a>&nbsp;is then specified on the parent, as referencing a collection of items represented by the child</p>
+<div class="cnblogs_Highlighter">
+<pre><span class="kn">from <span class="nn">sqlalchemy <span class="kn">import <span class="n">Table<span class="p">, <span class="n">Column<span class="p">, <span class="n">Integer<span class="p">, <span class="n">ForeignKey
+<span class="kn">from <span class="nn">sqlalchemy.orm <span class="kn">import <span class="n">relationship
+<span class="kn">from <span class="nn">sqlalchemy.ext.declarative <span class="kn">import <span class="n">declarative_base
+
+<span class="n">Base <span class="o">= <span class="n">declarative_base<span class="p">()</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre>
+<pre class="brush:python;gutter:true;"><br />class Parent(Base):
+    __tablename__ = 'parent'
+    id = Column(Integer, primary_key=True)
+    children = relationship("Child")
+
+class Child(Base):
+    __tablename__ = 'child'
+    id = Column(Integer, primary_key=True)
+    parent_id = Column(Integer, ForeignKey('parent.id'))
+</pre>
+</div>
+<p>To establish a bidirectional relationship in one-to-many, where the &ldquo;reverse&rdquo; side is a many to one, specify an additional&nbsp;<a class="reference internal" title="sqlalchemy.orm.relationship" href="http://docs.sqlalchemy.org/en/rel_1_0/orm/relationship_api.html#sqlalchemy.orm.relationship"><code class="xref py py-func docutils literal"><span class="pre">relationship()</span></code></a>&nbsp;and connect the two using the<a class="reference internal" title="sqlalchemy.orm.relationship" href="http://docs.sqlalchemy.org/en/rel_1_0/orm/relationship_api.html#sqlalchemy.orm.relationship.params.back_populates"><code class="xref py py-paramref docutils literal"><span class="pre">relationship.back_populates</span></code></a>&nbsp;parameter:</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">class Parent(Base):
+    __tablename__ = 'parent'
+    id = Column(Integer, primary_key=True)
+    children = relationship("Child", back_populates="parent")
+
+class Child(Base):
+    __tablename__ = 'child'
+    id = Column(Integer, primary_key=True)
+    parent_id = Column(Integer, ForeignKey('parent.id'))
+    parent = relationship("Parent", back_populates="children")
+</pre>
+</div>
+<p><code class="docutils literal"><span class="pre">Child</span></code>&nbsp;will get a&nbsp;<code class="docutils literal"><span class="pre">parent</span></code>&nbsp;attribute with many-to-one semantics.</p>
+<p>Alternatively, the&nbsp;<a class="reference internal" title="sqlalchemy.orm.relationship" href="http://docs.sqlalchemy.org/en/rel_1_0/orm/relationship_api.html#sqlalchemy.orm.relationship.params.backref"><code class="xref py py-paramref docutils literal"><span class="pre">backref</span></code></a>&nbsp;option may be used on a single&nbsp;<a class="reference internal" title="sqlalchemy.orm.relationship" href="http://docs.sqlalchemy.org/en/rel_1_0/orm/relationship_api.html#sqlalchemy.orm.relationship"><code class="xref py py-func docutils literal"><span class="pre">relationship()</span></code></a>&nbsp;instead of using<a class="reference internal" title="sqlalchemy.orm.relationship" href="http://docs.sqlalchemy.org/en/rel_1_0/orm/relationship_api.html#sqlalchemy.orm.relationship.params.back_populates"><code class="xref py py-paramref docutils literal"><span class="pre">back_populates</span></code></a>:</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:python;gutter:true;">class Parent(Base):
+    __tablename__ = 'parent'
+    id = Column(Integer, primary_key=True)
+    children = relationship("Child", backref="parent")
+</pre>
+</div>
+<p>　　</p>
+<p>　　</p>
+<p>附，原生sql join查询</p>
+<p>几个Join的区别&nbsp;http://stackoverflow.com/questions/38549/difference-between-inner-and-outer-joins&nbsp;</p>
+<ul>
+<li><strong>INNER JOIN</strong>: Returns all rows when there is at least one match in BOTH tables</li>
+<li><strong>LEFT JOIN</strong>: Return all rows from the left table, and the matched rows from the right table</li>
+<li><strong>RIGHT JOIN</strong>: Return all rows from the right table, and the matched rows from the left table</li>
+</ul>
+<div class="cnblogs_Highlighter">
+<pre class="brush:sql;gutter:true;">select host.id,hostname,ip_addr,port,host_group.name from host right join host_group on host.id = host_group.host_id
+</pre>
+</div>
+<p>in SQLAchemy</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:sql;gutter:true;">session.query(Host).join(Host.host_groups).filter(HostGroup.name=='t1').group_by("Host").all()
+</pre>
+</div>
+<p>　　</p>
+<p>group by 查询</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:sql;gutter:true;">select name,count(host.id) as NumberOfHosts from host right join host_group on host.id= host_group.host_id group by name;
+</pre>
+</div>
+<p>in SQLAchemy</p>
+<div class="cnblogs_Highlighter">
+<pre class="brush:sql;gutter:true;">from sqlalchemy import func
+session.query(HostGroup, func.count(HostGroup.name )).group_by(HostGroup.name).all()
+
+#another example
+session.query(func.count(User.name), User.name).group_by(User.name).all() SELECT count(users.name) AS count_1, users.name AS users_name
+FROM users GROUP BY users.name
+</pre>
+</div>
+<p>　　</p>
+<p>&nbsp;　　</p>
+<p>　　</p>
+<p>　　</p>
+<h3>&nbsp;</h3>
+<p><a href="http://files.cnblogs.com/files/wupeiqi/sqlalchemy.pdf.zip" target="_blank">更多ORM内容猛点这里</a></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h3>本节作业一</h3>
+<p><strong>题目:简单主机批量管理工具</strong></p>
+<p>需求:</p>
+<ol>
+<li>主机分组</li>
+<li>登录后显示主机分组，选择分组后查看主机列表</li>
+<li>可批量执行命令、发送文件，结果实时返回</li>
+<li>主机用户名密码可以不同</li>
+</ol>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h3>&nbsp;</h3>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>　　</p>
+</div></div><div id="MySignature"></div>
+<div class="clear"></div>
+<div id="blog_post_info_block">
+<div id="BlogPostCategory"></div>
+<div id="EntryTag"></div>
+<div id="blog_post_info">
+</div>
+<div class="clear"></div>
+<div id="post_next_prev"></div>
+</div>
+
+
+		</div>
+		<div class = "postDesc">posted @ <span id="post-date">2016-03-06 19:14</span> <a href='http://www.cnblogs.com/alex3714/'>金角大王</a> 阅读(<span id="post_view_count">...</span>) 评论(<span id="post_comment_count">...</span>) &nbsp;<a href="https://i.cnblogs.com/EditArticles.aspx?postid=5248247" rel="nofollow">编辑</a> <a href="#" onclick="AddToWz(5248247);return false;">收藏</a></div>
+	</div>
+	<script type="text/javascript">var allowComments=true,cb_blogId=214271,cb_entryId=5248247,cb_blogApp=currentBlogApp,cb_blogUserGuid='64e4fae3-b5aa-e411-b908-9dcfd8948a71',cb_entryCreatedDate='2016/3/6 19:14:00';loadViewCount(cb_entryId);</script>
+	
+</div><!--end: topics 文章、评论容器-->
+</div><a name="!comments"></a><div id="blog-comments-placeholder"></div><script type="text/javascript">var commentManager = new blogCommentManager();commentManager.renderComments(0);</script>
+<div id='comment_form' class='commentform'>
+<a name='commentform'></a>
+<div id='divCommentShow'></div>
+<div id='comment_nav'><span id='span_refresh_tips'></span><a href='javascript:void(0);' onclick='return RefreshCommentList();' id='lnk_RefreshComments' runat='server' clientidmode='Static'>刷新评论</a><a href='#' onclick='return RefreshPage();'>刷新页面</a><a href='#top'>返回顶部</a></div>
+<div id='comment_form_container'></div>
+<div class='ad_text_commentbox' id='ad_text_under_commentbox'></div>
+<div id='ad_t2'></div>
+<div id='opt_under_post'></div>
+<div id='ad_c1' class='c_ad_block'></div>
+<div id='under_post_news'></div>
+<div id='ad_c2' class='c_ad_block'></div>
+<div id='under_post_kb'></div>
+<div id='HistoryToday' class='c_ad_block'></div>
+<script type='text/javascript'>
+    fixPostBody();
+    setTimeout(function () { incrementViewCount(cb_entryId); }, 50);
+    deliverAdT2();
+    deliverAdC1();
+    deliverAdC2();    
+    loadNewsAndKb();
+    loadBlogSignature();
+    LoadPostInfoBlock(cb_blogId, cb_entryId, cb_blogApp, cb_blogUserGuid);
+    GetPrevNextPost(cb_entryId, cb_blogId, cb_entryCreatedDate);
+    loadOptUnderPost();
+    GetHistoryToday(cb_blogId, cb_blogApp, cb_entryCreatedDate);   
+</script>
+</div>
+
+
+	</div><!--end: forFlow -->
+	</div><!--end: mainContent 主体内容容器-->
+
+	<div id="sideBar">
+		<div id="sideBarMain">
+			
+<!--done-->
+<div class="newsItem">
+<h3 class="catListTitle">公告</h3>
+	<div id="blog-news"></div><script type="text/javascript">loadBlogNews();</script>
+</div>
+
+			<div id="calendar"><div id="blog-calendar" style="display:none"></div><script type="text/javascript">loadBlogDefaultCalendar();</script></div>
+			
+			<div id="leftcontentcontainer">
+				<div id="blog-sidecolumn"></div><script type="text/javascript">loadBlogSideColumn();</script>
+			</div>
+			
+		</div><!--end: sideBarMain -->
+	</div><!--end: sideBar 侧边栏容器 -->
+	<div class="clear"></div>
+	</div><!--end: main -->
+	<div class="clear"></div>
+	<div id="footer">
+		
+<!--done-->
+Copyright &copy;2016 金角大王
+	</div><!--end: footer -->
+</div><!--end: home 自定义的最大容器 -->
+</body>
+</html>

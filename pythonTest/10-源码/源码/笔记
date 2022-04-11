@@ -1,0 +1,50 @@
+失控  kk ,必然
+
+浪潮之巅  ，数学之美
+
+
+线程 内存共享
+线程同时修改同一份数据时必须加锁，mutex互斥锁
+递归锁
+
+def run(n):
+  print('run thread...')
+
+
+
+
+for i in range(10):
+    t = threading.Thread(target=run, args=(n,))
+    t.setDaemon(True)
+    t.start()
+
+
+print 'master is done....'
+
+守护线程(slave) 服务与非守护线程(master)
+
+
+进程 至少包含一个线程
+
+
+queue
+   解耦，使程序直接实现松耦合，
+   提高处理效率 ，
+
+   FIFO = first in first out
+   LIFO = last in first out
+
+
+io 操作不占用cpu
+
+计算占用cpu , 1+1
+
+ python多线程 不适合cpu密集操作型的任务，适合io操作密集型的任务
+
+
+multiprocess
+Queue  \ Pipe 只是实现进程间数据的传递
+Manager 实现了进程间数据的共享，即多个进程可以修改同一份数据
+
+
+IO 多路复用
