@@ -1,0 +1,5 @@
+tmp/
+minikube-manifests/
+vendor/
+./auth
+.swp
