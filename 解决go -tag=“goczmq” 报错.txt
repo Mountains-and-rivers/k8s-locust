@@ -1,0 +1,68 @@
+解决：go build  -tags 'goczmq' .\main.go 
+
+报错：sorry, unimplemented: 64-bit mode not compiled in
+
+git clone https://github.com/jedisct1/libsodium.git
+./configure
+make && make check
+sudo make install
+
+git clone https://github.com/zeromq/libzmq.git
+cd libzmq
+./autogen.sh
+./configure --with-libsodium
+make check
+sudo make install
+sudo ldconfig
+cd ..
+
+git clone https://github.com/zeromq/czmq.git
+cd czmq
+./autogen.sh && ./configure && make check
+sudo make install
+sudo ldconfig
+cd ..
+
+
+解决：
+vendor/github.com/myzhan/boomer/client_czmq.go:43:8: dealer.SetOption undefined (type *goczmq.Sock has no field or method SetOption)
+vendor/github.com/myzhan/boomer/client_czmq.go:43:19: undefined: goczmq.SockSetIdentity
+
+ go get github.com/zeromq/goczmq
+go: downloading github.com/zeromq/goczmq v0.0.0-20190906225145-a7546843a315
+go get: upgraded github.com/zeromq/goczmq v0.0.0-20190622112907-4715d4da6d4b => v0.0.0-20190906225145-a7546843a315
+
+
+解决：
+
+error while loading shared libraries: libczmq.so.4: cannot open shared object file: No such file or directory
+vim /etc/ld.so.conf
+（2） 在文件中添加libzmq.so.4所在的路径，我的路径为/usr/local/lib
+
+include ld.so.conf.d/*.conf
+ 
+/usr/local/lib/
+（3）修改完成保存，执行ldconfig命令刷新动态库
+
+ ldconfig
+
+
+go build -tags 'goczmq' -o locust-worker . 执行成功
+
+在其他机器执行
+
+copy 以下三个库至 /usr/local/lib
+
+libczmq.so.4.2.2
+libzmq.so.5
+libsodium.so.23
+
+追加库路径
+echo "/usr/local/lib/" >> /etc/ld.so.conf
+ldconfig
+
+
+
+
+
+
